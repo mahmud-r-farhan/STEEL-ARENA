@@ -337,6 +337,7 @@ enc[T.SNAPSHOT] = function(w, m)
   for _, t in ipairs(tanks) do
     w:u16(t.id):pos(t.x):pos(t.y):ang(t.hull):ang(t.turret)
     w:u16(t.hp):frac(t.reload or 0):u8(t.flags or 0)
+    w:u8(t.kills or 0):u8(t.deaths or 0)
   end
   local bullets = m.bullets or {}
   w:u8(#bullets)
@@ -363,6 +364,7 @@ dec[T.SNAPSHOT] = function(r)
     tanks[i] = {
       id = r:u16(), x = r:pos(), y = r:pos(), hull = r:ang(), turret = r:ang(),
       hp = r:u16(), reload = r:frac(), flags = r:u8(),
+      kills = r:u8(), deaths = r:u8(),
     }
   end
   m.tanks = tanks

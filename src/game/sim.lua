@@ -335,9 +335,9 @@ function Sim:killTank(target, killerId)
   if killer and killer.id ~= target.id then
     killer.kills = killer.kills + 1
     killer.score = killer.score + 100
-    -- kill scoring counts only in TDM (DM uses per-player kills,
-    -- CTF/Control use objectives)
-    if self.mode.id == "tdm" then
+    -- kill scoring counts in TDM and Solo (PVE); DM uses per-player kills,
+    -- CTF/Control are objective-driven
+    if self.mode.id == "tdm" or self.mode.id == "solo" then
       if killer.team == 1 then self.scoreA = self.scoreA + 1
       else self.scoreB = self.scoreB + 1 end
     end
@@ -743,6 +743,7 @@ function Sim:snapshot()
       hp = math.max(0, math.floor(t.hp)),
       reload = (t.stats.reload > 0) and (1 - t.reloadLeft / (t.stats.reload * (t.fxRapid > 0 and 0.55 or 1))) or 1,
       flags = flags,
+      kills = math.min(255, t.kills), deaths = math.min(255, t.deaths),
     }
   end
   local bullets = {}

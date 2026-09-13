@@ -47,22 +47,24 @@ function Transport:on(msgType, fn)
   self.handlers[msgType] = fn
 end
 
--- server: find or create a connection record for an address
-function Transport:serverConn(addr)
-  local c = self.byAddr[addr]
+-- server: find or create a connection record for an endpoint key
+-- ("ip:port"). ip/port kept separately for socket.sendto().
+function Transport:serverConn(key, ip, port)
+  local c = self.byAddr[key]
   if not c then
     c = {
       id = self.nextConnId,
-      addr = addr,
+      addr = key,
+      ip = ip,
+      port = port,
       sendSeq = 0,
       recvSeq = {},
       lastAckBase = 0,
       lastRecv = socket.gettime(),
-      data = {},          -- app layer (player object)
-      pendingAcks = {},   -- reliable resends
+      data = nil,         -- app layer (player object)
     }
     self.nextConnId = self.nextConnId + 1
-    self.byAddr[addr] = c
+    self.byAddr[key] = c
   end
   return c
 end
@@ -117,11 +119,12 @@ end
 
 -- server-side: send to a specific connection
 function Transport:sendTo(conn, msgType, msg)
+  if not self.udp or not conn.ip then return nil, "no endpoint" end
   local body, err = Protocol.encode(msgType, msg)
   if not body then return nil, err end
   conn.sendSeq = (conn.sendSeq + 1) % 65536
   local pkt = packHeader(conn.id, conn.sendSeq, conn.lastAckBase) .. body
-  local ok = self.udp:sendto(pkt, conn.addr)
+  local ok = self.udp:sendto(pkt, conn.ip, conn.port)
   if ok then conn.lastSend = socket.gettime() end
   return ok
 end
@@ -133,7 +136,8 @@ function Transport:broadcast(conns, msgType, msg)
 end
 
 -- parse a raw datagram; returns conn(server)/true(client), msgType, msg
-local function parse(self, datagram, addr)
+-- server: epKey="ip:port", ip, port
+local function parse(self, datagram, epKey, ip, port)
   if #datagram < HEADER + 1 then return nil end
   local b1, b2 = datagram:byte(1, 2)
   if b1 ~= MAGIC_LO or b2 ~= MAGIC_HI then return nil end
@@ -146,7 +150,7 @@ local function parse(self, datagram, addr)
   if not msgType then return nil end
 
   if self.isServer then
-    local conn = self:serverConn(addr)
+    local conn = self:serverConn(epKey, ip, port)
     conn.lastRecv = socket.gettime()
     conn.lastAckBase = ackBase
     -- duplicate-suppression: track recent seqs
@@ -177,13 +181,14 @@ end
 -- pump: receive + dispatch all pending datagrams
 function Transport:pump()
   while true do
-    local data, msg_or_addr, addr = self.udp:receive()
+    local data, ip_or_nil, port_or_nil = self.udp:receive()
     if not data then break end
     local conn, msgType, msg
     if self.isServer then
-      conn, msgType, msg = parse(self, data, msg_or_addr)
+      conn, msgType, msg = parse(self, data,
+        ip_or_nil .. ":" .. port_or_nil, ip_or_nil, port_or_nil)
     else
-      conn, msgType, msg = parse(self, data, nil)
+      conn, msgType, msg = parse(self, data, nil, nil, nil)
     end
     if conn and msgType then
       local h = self.handlers[msgType]
