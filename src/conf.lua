@@ -3,7 +3,7 @@
 local headless = false
 if type(arg) == "table" then
   for _, a in ipairs(arg) do
-    if a == "--server" or a == "--selftest" then headless = true end
+    if a == "--server" or a == "--selftest" or a == "--nettest" then headless = true end
   end
 end
 

@@ -1,0 +1,47 @@
+name: Steel Arena CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    name: Test and Package Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install LÖVE & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y love luajit zip unzip
+
+      - name: Run Lua Syntax Verification
+        run: |
+          echo "Checking Lua syntax..."
+          find src -name "*.lua" -exec luajit -bl {} > /dev/null \;
+          echo "Syntax check passed!"
+
+      - name: Run Headless Self-Test (--selftest)
+        run: |
+          love src --selftest
+
+      - name: Run Headless End-to-End Network Test (--nettest)
+        run: |
+          love src --nettest
+
+      - name: Build Release Packages
+        run: |
+          bash tools/build-release.sh
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: steel-arena-release
+          path: |
+            dist/*.love
+            dist/*.zip
