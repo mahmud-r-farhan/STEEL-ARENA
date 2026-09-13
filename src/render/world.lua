@@ -7,7 +7,10 @@
 local Maps  = require("data.maps")
 local Tanks = require("data.tanks")
 
-local gfx = love.graphics
+local gfx = (love and love.graphics) or nil
+if not gfx then
+  gfx = setmetatable({}, { __index = function() return function() end end })
+end
 local TAU = math.pi * 2
 
 local _fonts = {}

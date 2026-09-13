@@ -14,6 +14,11 @@ local Protocol = require("net.protocol")
 local Transport = {}
 Transport.__index = Transport
 Transport.available = socket ~= nil
+Transport.debug = false    -- set true to trace packet flow
+
+local function dbg(...)
+  if Transport.debug then print("[net]", ...) end
+end
 
 local HEADER = 8   -- magic u16 + connId u16 + seq u16 + ackBase u16
 local MAGIC_LO, MAGIC_HI = Protocol.MAGIC % 256, math.floor(Protocol.MAGIC / 256)
@@ -26,7 +31,10 @@ function Transport.new(isServer, port)
   self.udp = socket.udp()
   self.udp:settimeout(0)
   if isServer then
-    assert(self.udp:setsockname("*", port or Protocol.DEFAULT_PORT), "cannot bind port")
+    -- bind IPv4 wildcard explicitly: clients target ipv4 addresses, and on
+    -- some Windows stacks "*" resolves to IPv6-only "::"
+    local bound, berr = self.udp:setsockname("0.0.0.0", port or Protocol.DEFAULT_PORT)
+    assert(bound, "cannot bind port: " .. tostring(berr))
     self.isServer = true
     self.nextConnId = 1
     self.byAddr = {}
@@ -153,6 +161,7 @@ local function parse(self, datagram, epKey, ip, port)
     local conn = self:serverConn(epKey, ip, port)
     conn.lastRecv = socket.gettime()
     conn.lastAckBase = ackBase
+    dbg("srv parse connId=" .. connId .. " seq=" .. seq .. " type=" .. msgType)
     -- duplicate-suppression: track recent seqs
     if conn.recvSeq[seq] then return nil end
     conn.recvSeq[seq] = true
@@ -167,6 +176,7 @@ local function parse(self, datagram, epKey, ip, port)
     if self.connId == 0 then
       self.connId = connId
     elseif self.connId ~= connId then
+      dbg("cli connId mismatch: " .. connId .. " vs " .. self.connId)
       return nil
     end
     if self.recvSeq[seq] then return nil end
@@ -174,14 +184,22 @@ local function parse(self, datagram, epKey, ip, port)
     local n = 0
     for _ in pairs(self.recvSeq) do n = n + 1 end
     if n > 512 then self.recvSeq = { [seq] = true } end
+    dbg("cli parse connId=" .. connId .. " seq=" .. seq .. " type=" .. msgType)
     return true, msgType, msg
   end
 end
 
--- pump: receive + dispatch all pending datagrams
+-- pump: receive + dispatch all pending datagrams.
+-- Server socket is unconnected: receivefrom() yields (data, ip, port).
+-- Client socket is connected: receive() yields (data) only.
 function Transport:pump()
   while true do
-    local data, ip_or_nil, port_or_nil = self.udp:receive()
+    local data, ip_or_nil, port_or_nil
+    if self.isServer then
+      data, ip_or_nil, port_or_nil = self.udp:receivefrom()
+    else
+      data = self.udp:receive()
+    end
     if not data then break end
     local conn, msgType, msg
     if self.isServer then

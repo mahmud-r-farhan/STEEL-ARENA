@@ -57,7 +57,7 @@ function Client.new(services)
   return c
 end
 
-function Client:toast(text, secs)
+function Client:showToast(text, secs)
   self.toast = { text = text, expire = love.timer.getTime() + (secs or 3) }
 end
 
@@ -86,7 +86,7 @@ function Client:connect(host, port)
   end)
   tr:on(T.ERROR, function(conn, msg)
     self.error = msg.msg or "error " .. tostring(msg.code)
-    self:toast(self.error)
+    self:showToast(self.error)
   end)
   tr:on(T.LOBBY_LIST, function(conn, msg)
     self.lobbyRooms = msg.rooms or {}
@@ -100,7 +100,7 @@ function Client:connect(host, port)
   end)
   tr:on(T.INVITE, function(conn, msg)
     self.invites[#self.invites + 1] = msg
-    self:toast(msg.fromName .. " invited you to " .. msg.roomName, 6)
+    self:showToast(msg.fromName .. " invited you to " .. msg.roomName, 6)
   end)
   tr:on(T.KICKED, function(conn, msg)
     self.room = nil

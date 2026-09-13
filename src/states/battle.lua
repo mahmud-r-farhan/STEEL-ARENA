@@ -16,8 +16,11 @@ local function atan2(y, x)
   return math.atan(y, x)
 end
 
-local gfx = love.graphics
-local W, H = gfx.getWidth, gfx.getHeight
+local gfx = (love and love.graphics) or nil
+if not gfx then
+  gfx = setmetatable({}, { __index = function() return function() end end })
+end
+local W, H = function() return 1280, 720 end, function() return 1280, 720 end
 
 local Battle = {}
 
@@ -183,7 +186,7 @@ local function consumeEvents()
           S.audio.play("pickup", nil)
           if e.tankId == c.myId then
             local key = POWER_KEYS[e.extra2] or "repair"
-            S.client:toast("Picked up: " .. key:upper(), 2)
+            S.client:showToast("Picked up: " .. key:upper(), 2)
           end
         end
       end

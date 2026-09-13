@@ -10,9 +10,16 @@ desktop.ini
 
 # Lua / LÖVE
 *.love
-lua*.exe
 love*.exe
+lua*.exe
+
+# Local runtime (downloaded by dev)
+tools/love/
+
+# Logs and test artifacts
+*.log
+smoke_out.txt
+net_out.txt
 
 # Local dev
-*.log
 /conf/local.lua

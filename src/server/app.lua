@@ -153,18 +153,35 @@ local function assignTeams(room)
   end
 end
 
+local BOT_NAMES = { "Rex", "Ivan", "Hank", "Bolt", "Sarge", "Roland",
+  "Sable", "Grit", "Vulcan", "Moose", "Dutch", "Ironside" }
+local BOT_TANKS = { "scout", "gunner", "brawler", "sniper", "heavy" }
+
 local function startMatch(room)
   local mode = Modes.get(room.modeId)
   assignTeams(room)
 
-  -- balance bots across teams
-  if mode.teams then
-    local a, b = 0, 0
-    for _, p in pairs(room.players) do
-      if p.isBot then
-        if a <= b then p.team = 1; a = a + 1 else p.team = 2; b = b + 1 end
-      end
+  -- spawn bot participants configured for this room
+  local teamA, teamB = 0, 0
+  for _, p in pairs(room.players) do
+    if mode.teams then
+      if p.team == 1 then teamA = teamA + 1 else teamB = teamB + 1 end
     end
+  end
+  for i = 1, (room.bots or 0) do
+    local id = Server.nextBotId
+    Server.nextBotId = Server.nextBotId + 1
+    local team = 1
+    if mode.teams then
+      if teamA <= teamB then team = 1; teamA = teamA + 1 else team = 2; teamB = teamB + 1 end
+    end
+    room.players[id] = {
+      id = id,
+      name = BOT_NAMES[(id % #BOT_NAMES) + 1] .. "_" .. (id % 90 + 10),
+      tankId = BOT_TANKS[(id % #BOT_TANKS) + 1],
+      camoId = "none", upgrades = {}, level = 1 + (id % 10),
+      ready = true, isBot = true, team = team, conn = nil,
+    }
   end
 
   local sim = Sim.new({
@@ -239,7 +256,10 @@ local function endMatch(room)
 
   room.sim = nil
   room.status = "lobby"
-  for _, p in pairs(room.players) do p.ready = false end
+  -- remove bot participants; reset humans
+  for id, p in pairs(room.players) do
+    if p.isBot then room.players[id] = nil else p.ready = false end
+  end
   broadcastRoomState(room)
 end
 
@@ -489,8 +509,9 @@ local function onStartMatch(conn)
   if room.status ~= "lobby" then return end
   local mode = Modes.get(room.modeId)
   local n = roomPlayerCount(room)
-  if n < (mode.minPlayers or 2) then
-    return sendError(conn, E.PROTOCOL, "need " .. (mode.minPlayers or 2) .. " players")
+  -- humans must satisfy minPlayers unless bots will fill the roster
+  if (room.bots or 0) == 0 and n < (mode.minPlayers or 2) then
+    return sendError(conn, E.PROTOCOL, "need " .. (mode.minPlayers or 2) .. " players (or add bots)")
   end
   startMatch(room)
 end
@@ -504,6 +525,40 @@ end
 -- Boot + main loop
 --=============================================================================
 
+-- non-blocking pump+tick used by the blocking loop and by tests
+function Server.pumpAndTick(dt)
+  transport:pump()
+  for _, room in pairs(Server.rooms) do
+    if room.status == "live" and room.sim then
+      local sim = room.sim
+      Bot.update(sim, dt)
+      sim:step(dt)
+      local snap = sim:snapshot()
+      for _, p in pairs(room.players) do
+        if p.conn then transport:sendTo(p.conn, T.SNAPSHOT, snap) end
+      end
+      if sim.over and not room.scoreSubmitted then
+        room.scoreSubmitted = true
+        room.endTimer = 2.0
+      end
+      if room.endTimer then
+        room.endTimer = room.endTimer - dt
+        if room.endTimer <= 0 then
+          room.endTimer = nil
+          endMatch(room)
+        end
+      end
+    end
+  end
+end
+
+function Server.info()
+  if transport and transport.udp then
+    local ip, port = transport.udp:getsockname()
+    return { ip = ip, port = port }
+  end
+end
+
 function Server.start(opts)
   opts = opts or {}
   local port = opts.port or Protocol.DEFAULT_PORT
@@ -511,24 +566,27 @@ function Server.start(opts)
 
   if not Transport.available then
     print("FATAL: LuaSocket missing - cannot run server")
+    if opts.exitOnError == false then return nil, "no luasocket" end
     os.exit(1)
   end
   local ok, err = pcall(function() transport = Transport.new(true, port) end)
   if not ok or not transport then
     print("FATAL: cannot bind UDP " .. tostring(port) .. ": " .. tostring(err))
+    if opts.exitOnError == false then return nil, err end
     os.exit(1)
   end
 
   -- connection records get a player shell
   local origConn = transport.serverConn
-  function transport:serverConn(addr)
-    local c = origConn(self, addr)
+  function transport:serverConn(key, ip, port)
+    local c = origConn(self, key, ip, port)
     if not c.data then
       c.data = {
         id = 0, name = "?", conn = c, room = nil,
         tankId = "scout", camoId = "none", upgrades = { 0, 0, 0, 0, 0 },
         level = 1, ready = false, isBot = false, lastChat = 0,
       }
+      c.data.conn = c
     end
     return c
   end
@@ -553,38 +611,19 @@ function Server.start(opts)
 
   log("Steel Arena server listening on UDP %d", port)
 
+  if opts.loop == false then return true end   -- test mode: caller drives ticks
+
   local last = socket.gettime()
   local acc = 0
   while true do
-    transport:pump()
     local now = socket.gettime()
     acc = acc + (now - last)
     last = now
     if acc >= TICK_DT then
-      local step = math.min(acc, 0.25)
+      Server.pumpAndTick(math.min(acc, 0.25))
       acc = 0
-      for _, room in pairs(Server.rooms) do
-        if room.status == "live" and room.sim then
-          local sim = room.sim
-          Bot.update(sim, step)
-          sim:step(step)
-          local snap = sim:snapshot()
-          for _, p in pairs(room.players) do
-            if p.conn then transport:sendTo(p.conn, T.SNAPSHOT, snap) end
-          end
-          if sim.over and not room.scoreSubmitted then
-            room.scoreSubmitted = true
-            room.endTimer = 2.0
-          end
-          if room.endTimer then
-            room.endTimer = room.endTimer - step
-            if room.endTimer <= 0 then
-              room.endTimer = nil
-              endMatch(room)
-            end
-          end
-        end
-      end
+    else
+      transport:pump()
     end
     transport:service(0.016)
     socket.sleep(0.001)

@@ -1,16 +1,33 @@
 --=============================================================================
 -- Immediate-mode UI kit. Draw + hit-test in one pass per frame.
 -- All functions take absolute screen coords; states handle layout.
+-- Falls back to a stub when love.graphics is unavailable (headless tests).
 --=============================================================================
 
-local gfx = love.graphics
+local gfx = (love and love.graphics) or nil
+if not gfx then
+  -- minimal stub so module loading and layout math still work headless
+  gfx = setmetatable({}, { __index = function() return function() end end })
+end
+gfx = gfx
 
 local Kit = {
-  mouse = { x = 0, y = 0, down = false, pressed = false, released = false },
-  hot = nil,          -- id of hovered widget
-  active = nil,       -- id of pressed widget
-  textCapture = nil,  -- active text input id
+  mouse = { x = 0, y = 0, down = false, pressed = false, released = false, wheel = 0 },
+  hot = nil,
+  active = nil,
+  textCapture = nil,
 }
+
+local _fonts = {}
+function Kit._font(size)
+  if gfx.newFont then
+    if not _fonts[size] then _fonts[size] = gfx.newFont(size) end
+    gfx.setFont(_fonts[size])
+    return _fonts[size]
+  end
+  -- headless stub
+  return { getWidth = function(_, s) return #(tostring(s)) * 8 end }
+end
 
 local function inRect(px, py, x, y, w, h)
   return px >= x and px <= x + w and py >= y and py <= y + h
@@ -19,6 +36,7 @@ end
 function Kit.newFrame()
   Kit.mouse.pressed = false
   Kit.mouse.released = false
+  Kit.mouse.wheel = 0
 end
 
 function Kit.mousepressed(x, y, button)
@@ -41,6 +59,10 @@ function Kit.mousemoved(x, y)
   Kit.mouse.x, Kit.mouse.y = x, y
 end
 
+function Kit.wheelmoved(x, y)
+  Kit.mouse.wheel = y * 40
+end
+
 --=============================================================================
 -- Primitives
 --=============================================================================
@@ -54,10 +76,7 @@ function Kit.panel(x, y, w, h, color)
 end
 
 function Kit.text(text, x, y, size, color, align, alignW)
-  local font
-  if size then
-    font = Kit._font(size)
-  end
+  if size then Kit._font(size) end
   gfx.setColor(color or { 0.9, 0.92, 0.95 })
   local w = alignW or 0
   if align == "center" then
@@ -69,22 +88,13 @@ function Kit.text(text, x, y, size, color, align, alignW)
   end
 end
 
-local _fonts = {}
-function Kit._font(size)
-  if not _fonts[size] then
-    _fonts[size] = gfx.newFont(size)
-  end
-  gfx.setFont(_fonts[size])
-  return _fonts[size]
-end
-
 function Kit.textWidth(text, size)
   local f = Kit._font(size or 14)
   return f:getWidth(text)
 end
 
 --=============================================================================
--- Widgets (return "clicked"/value when activated)
+-- Widgets (return truthy when activated)
 --=============================================================================
 
 function Kit.button(id, label, x, y, w, h, opts)
@@ -95,13 +105,14 @@ function Kit.button(id, label, x, y, w, h, opts)
   local clicked = hov and Kit.mouse.released
 
   local base = opts.color or { 0.16, 0.2, 0.26 }
-  local c = { base[1], base[2], base[3], opts.color and opts.color[4] or 1 }
+  local alpha = opts.color and opts.color[4] or 1
+  local r, g, b = base[1], base[2], base[3]
   if down then
-    c = { base[1] * 0.75, base[2] * 0.75, base[3] * 0.75, c[4] }
+    r, g, b = r * 0.75, g * 0.75, b * 0.75
   elseif hov then
-    c = { math.min(1, base[1] * 1.35), math.min(1, base[2] * 1.35), math.min(1, base[3] * 1.35), c[4] }
+    r, g, b = math.min(1, r * 1.35), math.min(1, g * 1.35), math.min(1, b * 1.35)
   end
-  gfx.setColor(c)
+  gfx.setColor(r, g, b, alpha)
   gfx.rectangle("fill", x, y, w, h, opts.radius or 6)
   gfx.setColor(1, 1, 1, hov and 0.18 or 0.08)
   gfx.setLineWidth(1)
@@ -120,10 +131,8 @@ function Kit.toggle(id, label, x, y, w, h, value)
   local boxW = 44
   local hit = inRect(mx, my, x, y, w, h)
   if hit and Kit.mouse.released then value = not value end
-  -- track
   gfx.setColor(value and { 0.25, 0.55, 0.3 } or { 0.3, 0.32, 0.36 })
   gfx.rectangle("fill", x, y + (h - boxH) / 2, boxW, boxH, 11)
-  -- knob
   local kx = value and (x + boxW - boxH + 3) or (x + 3)
   gfx.setColor(0.95, 0.95, 0.95)
   gfx.circle("fill", kx + boxH / 2 - 3, y + h / 2, boxH / 2 - 3)
@@ -135,7 +144,7 @@ end
 
 function Kit.slider(id, x, y, w, value, lo, hi)
   lo, hi = lo or 0, hi or 1
-  local mx, my = Kit.mouse.y and Kit.mouse.x or 0, Kit.mouse.y or 0
+  local mx, my = Kit.mouse.x, Kit.mouse.y
   local h = 20
   local hit = inRect(mx, my, x - 6, y - 8, w + 12, h + 8)
   if hit and Kit.mouse.down then Kit.active = id end
@@ -144,7 +153,6 @@ function Kit.slider(id, x, y, w, value, lo, hi)
     value = lo + (hi - lo) * k
     if not Kit.mouse.down then Kit.active = nil end
   end
-  -- track
   gfx.setColor(0.25, 0.28, 0.33)
   gfx.rectangle("fill", x, y + h / 2 - 3, w, 6, 3)
   local k = (value - lo) / (hi - lo)
@@ -185,7 +193,6 @@ function Kit.textInput(id, x, y, w, h, value, placeholder, opts)
   return value
 end
 
--- list row helper with hover highlight; returns clicked
 function Kit.listRow(id, x, y, w, h)
   local mx, my = Kit.mouse.x, Kit.mouse.y
   local hov = inRect(mx, my, x, y, w, h)
@@ -196,17 +203,16 @@ function Kit.listRow(id, x, y, w, h)
   return hov and Kit.mouse.released
 end
 
--- scroll area: returns offset to apply to content; consume wheel
 function Kit.scrollArea(id, x, y, w, h, contentH, wheelDelta, currentOffset)
   local offset = currentOffset or 0
   local maxOff = math.max(0, contentH - h)
   local mx, my = Kit.mouse.x, Kit.mouse.y
   local hov = inRect(mx, my, x, y, w, h)
-  if hov and wheelDelta and wheelDelta ~= 0 then
-    offset = math.max(0, math.min(maxOff, offset - wheelDelta))
+  local delta = wheelDelta or Kit.mouse.wheel or 0
+  if hov and delta ~= 0 then
+    offset = math.max(0, math.min(maxOff, offset - delta))
   end
   if maxOff > 0 then
-    -- scrollbar
     local barH = math.max(24, h * (h / contentH))
     local barY = y + (h - barH) * (offset / maxOff)
     gfx.setColor(1, 1, 1, 0.12)
@@ -223,11 +229,11 @@ end
 function Kit.beginClip(x, y, w, h)
   gfx.setScissor(x, y, w, h)
 end
+
 function Kit.endClip()
   gfx.setScissor()
 end
 
--- tabs row; returns selected index
 function Kit.tabs(id, labels, x, y, w, h, selected)
   local n = #labels
   local bw = w / n
@@ -246,7 +252,6 @@ function Kit.tabs(id, labels, x, y, w, h, selected)
   return selected
 end
 
--- progress bar
 function Kit.bar(x, y, w, h, frac, color)
   frac = math.max(0, math.min(1, frac or 0))
   gfx.setColor(0.08, 0.09, 0.11)

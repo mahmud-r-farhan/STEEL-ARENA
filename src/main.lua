@@ -40,7 +40,9 @@ function love.load(args)
     save     = Save,
     settings = Settings,
     audio    = Audio,
-  })  -- Dedicated server / self-test / smoke-test modes: headless or windowed.
+  })
+
+  -- Dedicated server / self-test / net-test / smoke-test modes.
   for _, a in ipairs(args or {}) do
     if a == "--server" then
       local ok, err = pcall(function()
@@ -60,6 +62,18 @@ function love.load(args)
         os.exit(1)
       end
       return
+    elseif a == "--nettest" then
+      -- headless end-to-end client<->server test
+      local ok, err = pcall(function()
+        local nt = require("core.nettest")
+        local passed = nt.run()
+        os.exit(passed and 0 or 1)
+      end)
+      if not ok then
+        print("NETTEST ERROR: " .. tostring(err))
+        os.exit(1)
+      end
+      return
     elseif a == "--smoke" then
       -- windowed smoke test: boot menu, then quit after 3s
       SMOKE_TEST = true
@@ -71,20 +85,35 @@ function love.load(args)
     return love_errorhandler(msg)
   end
 
+  print("[boot] switching to menu.main")
   States.switch("menu.main")
+  print("[boot] menu.main entered")
 end
 
+local _rawUpdate = nil
 function love.update(dt)
+  local ok, err = xpcall(function() _updateBody(dt) end, function(e)
+    print("[UPDATE ERROR] " .. tostring(e))
+    print(debug.traceback(e, 2))
+  end)
+  if not ok then love.event.quit() end
+end
+
+function _updateBody(dt)
   States.update(dt)
   if SMOKE_TEST and love.timer.getTime() - SMOKE_START > 3 then
-    print("SMOKE TEST PASSED: menu booted, 3s simulated")
-    io.open("smoke.log", "w"):write("smoke ok " .. love.timer.getTime())
+    SMOKE_TEST = false
+    print("SMOKE TEST PASSED: menu booted, rendered and updated for 3s")
     love.event.quit()
   end
 end
 
 function love.draw()
-  States.draw()
+  local ok, err = xpcall(States.draw, function(e)
+    print("[DRAW ERROR] " .. tostring(e))
+    print(debug.traceback(e, 2))
+  end)
+  if not ok then love.event.quit() end
 end
 
 function love.keypressed(key, scancode, isrepeat)
@@ -119,7 +148,8 @@ function love.resize(w, h)
   States.resize(w, h)
 end
 
+-- NOTE: returning true from love.quit() ABORTS quitting in LÖVE 11,
+-- so flush persistence and return nothing.
 function love.quit()
   States.quit()
-  return true
 end

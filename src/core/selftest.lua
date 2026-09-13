@@ -41,6 +41,26 @@ local function roundtrip(msgType, msg, label)
   return m2
 end
 
+local function testModules()
+  print("[modules]")
+  -- load every module to catch syntax/dependency errors without a window
+  local mods = {
+    "core.save", "core.settings", "core.state", "core.audio",
+    "data.tanks", "data.maps", "data.modes",
+    "net.protocol", "net.transport",
+    "game.sim", "game.bot", "game.client",
+    "ui.kit", "render.world",
+    "states.battle", "states.menu.main", "states.menu.play",
+    "states.menu.room", "states.menu.store", "states.menu.garage",
+    "states.menu.settings",
+    "server.app",
+  }
+  for _, m in ipairs(mods) do
+    local ok, err = pcall(require, m)
+    check(ok, "require " .. m .. (ok and "" or " (" .. tostring(err) .. ")"))
+  end
+end
+
 local function testProtocol()
   print("[protocol]")
   local m
@@ -173,6 +193,7 @@ return {
   run = function()
     out("=== Steel Arena selftest ===")
     local ok, err = pcall(function()
+      testModules()
       testProtocol()
       testSim()
     end)

@@ -6,8 +6,11 @@ local Kit   = require("ui.kit")
 local Tanks = require("data.tanks")
 local States = require("core.state")
 
-local gfx = love.graphics
-local W, H = gfx.getWidth, gfx.getHeight
+local gfx = (love and love.graphics) or nil
+if not gfx then
+  gfx = setmetatable({}, { __index = function() return function() end end })
+end
+local W, H = function() return 1280, 720 end, function() return 1280, 720 end
 
 local Store = {}
 
@@ -74,12 +77,12 @@ function Store.draw()
   if S.tab == 1 then
     -- tanks grid
     local cw, ch = 420, 110
-    local cols = math.floor(w - 60) // (cw + 20)
+    local cols = math.floor((w - 60) / (cw + 20))
     local x0 = (w - (cols * (cw + 20) - 20)) / 2
     local i = 0
     for _, def in ipairs(Tanks.all()) do
       local col = i % cols
-      local row = i // cols
+      local row = math.floor(i / cols)
       local x = x0 + col * (cw + 20)
       local y = py + row * (ch + 16)
       i = i + 1
@@ -141,12 +144,12 @@ function Store.draw()
 
     local cy = py + 64
     local cw, ch = 300, 120
-    local cols = math.max(1, math.floor(w - 60) // (cw + 20))
+    local cols = math.max(1, math.floor((w - 60) / (cw + 20)))
     local x0 = (w - (math.min(cols, #(Tanks.camos and {} or {})) ) ) -- placeholder
     local i = 0
     for camoId, camo in pairs(Tanks.camos) do
       local col = i % cols
-      local row = i // cols
+      local row = math.floor(i / cols)
       local x = 40 + col * (cw + 20)
       local y = cy + row * (ch + 16)
       i = i + 1

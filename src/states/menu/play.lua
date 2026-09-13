@@ -7,8 +7,11 @@ local Modes = require("data.modes")
 local Maps  = require("data.maps")
 local States = require("core.state")
 
-local gfx = love.graphics
-local W, H = gfx.getWidth, gfx.getHeight
+local gfx = (love and love.graphics) or nil
+if not gfx then
+  gfx = setmetatable({}, { __index = function() return function() end end })
+end
+local W, H = function() return 1280, 720 end, function() return 1280, 720 end
 
 local Play = {}
 
