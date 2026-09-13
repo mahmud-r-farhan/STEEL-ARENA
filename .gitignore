@@ -1,0 +1,18 @@
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.sublime-*
+
+# Lua / LÖVE
+*.love
+lua*.exe
+love*.exe
+
+# Local dev
+*.log
+/conf/local.lua
