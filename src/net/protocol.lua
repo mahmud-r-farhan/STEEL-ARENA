@@ -30,6 +30,8 @@ T.ROOM_CONFIG  = 13
 T.KICK         = 14
 T.QUICK_MATCH  = 15
 T.DISCONNECT   = 16
+T.ACK          = 17   -- both directions: reliable-delivery ack
+T.START_MATCH  = 18   -- client->server (host only)
 -- server -> client
 T.WELCOME      = 64
 T.LOBBY_LIST   = 65
@@ -50,6 +52,7 @@ Protocol.EV = {
   SHOT = 1, HIT = 2, EXPLODE = 3, PICKUP = 4, KILL = 5,
   FLAG_TAKEN = 6, FLAG_DROPPED = 7, FLAG_CAPTURED = 8,
   ZONE_CAPTURED = 9, RESPAWN = 10, DAMAGE_TAKEN = 11,
+  RICOCHET = 12, FLAG_RETURNED = 13,
 }
 
 Protocol.ERRORS = {
@@ -222,6 +225,13 @@ dec[T.QUICK_MATCH] = function(r) return { modeId = r:str() } end
 
 enc[T.DISCONNECT] = function() end
 dec[T.DISCONNECT] = function() return {} end
+
+-- ack: base seq + 32-bit mask of acked seqs (base..base+31)
+enc[T.ACK] = function(w, m) w:u16(m.base or 0):u32(m.mask or 0) end
+dec[T.ACK] = function(r) return { base = r:u16(), mask = r:u32() } end
+
+enc[T.START_MATCH] = function() end
+dec[T.START_MATCH] = function() return {} end
 
 -- --- S2C ---
 enc[T.WELCOME] = function(w, m) w:u16(m.playerId or 0):str(m.motd or "") end
