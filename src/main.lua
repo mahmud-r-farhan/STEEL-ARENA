@@ -32,16 +32,25 @@ function love.load(args)
     audio    = Audio,
   })
 
-  -- Dedicated server mode: no window states, straight into host sim.
+  -- Dedicated server / self-test modes: headless, no states.
   for _, a in ipairs(args or {}) do
     if a == "--server" then
       local ok, err = pcall(function()
-        local NetServer = require("net.server")
-        local ServerApp = require("server.app")
-        ServerApp.start()
+        require("server.app").start()
       end)
       if not ok then print("SERVER ERROR: " .. tostring(err)) end
       love.event.quit()
+      return
+    elseif a == "--selftest" then
+      local ok, err = pcall(function()
+        local st = require("core.selftest")
+        local passed = st.run()
+        os.exit(passed and 0 or 1)
+      end)
+      if not ok then
+        print("SELFTEST ERROR: " .. tostring(err))
+        os.exit(1)
+      end
       return
     end
   end

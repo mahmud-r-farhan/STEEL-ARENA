@@ -386,7 +386,7 @@ dec[T.SNAPSHOT] = function(r)
 end
 
 enc[T.MATCH_END] = function(w, m)
-  w:u8(m.winner or 0)
+  w:u16(m.winner or 0)
   local rows = m.scoreboard or {}
   w:u8(#rows)
   for _, s in ipairs(rows) do
@@ -395,7 +395,7 @@ enc[T.MATCH_END] = function(w, m)
   end
 end
 dec[T.MATCH_END] = function(r)
-  local m = { winner = r:u8() }
+  local m = { winner = r:u16() }
   local rows, n = {}, r:u8()
   for i = 1, n do
     rows[i] = { id = r:u16(), name = r:str(), kills = r:u8(), deaths = r:u8(),

@@ -335,14 +335,15 @@ function Sim:killTank(target, killerId)
   if killer and killer.id ~= target.id then
     killer.kills = killer.kills + 1
     killer.score = killer.score + 100
-    -- scoring for modes
-    if self.mode.teams then
+    -- kill scoring counts only in TDM (DM uses per-player kills,
+    -- CTF/Control use objectives)
+    if self.mode.id == "tdm" then
       if killer.team == 1 then self.scoreA = self.scoreA + 1
       else self.scoreB = self.scoreB + 1 end
     end
   elseif killer and killer.id == target.id then
     -- suicide: no credit, drop a team point in TDM
-    if self.mode.teams then
+    if self.mode.id == "tdm" then
       if target.team == 1 then self.scoreA = math.max(0, self.scoreA - 1)
       else self.scoreB = math.max(0, self.scoreB - 1) end
     end
@@ -635,8 +636,11 @@ function Sim:step(dt)
         self:onEvent({ kind = Protocol.EV.HIT, tankId = 0, x = b.x, y = b.y, extra2 = 0 })
         break
       end
-      -- tanks
+      -- tanks (friendly fire off in team modes: bullets pass through)
       local hit = self:tankAt(b.x, b.y, Sim.BULLET_RADIUS, b.owner)
+      if hit and self.mode.teams and hit.team == b.team then
+        hit = nil
+      end
       if hit then
         dead = true
         self:damage(hit, b.damage, b.owner, b.x, b.y)
