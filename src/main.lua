@@ -5,7 +5,11 @@
 -- Run client:      love src
 -- Run dedicated:   love src --server
 -- Self-test:       love src --selftest
+-- Smoke test:      love src --smoke
 --=============================================================================
+
+-- ensure both src-root and LÖVE save-dir module resolution
+package.path = ";./?.lua;./?/init.lua" .. package.path
 
 local Save      = require("core.save")
 local Settings  = require("core.settings")
@@ -17,11 +21,15 @@ local Audio     = require("core.audio")
 
 local love_errorhandler = love.errorhandler
 
+-- smoke-test flags (set by --smoke arg)
+SMOKE_TEST = false
+SMOKE_START = 0
+
 function love.load(args)
   math.randomseed(os.time())
   Settings.load()
   Save.load()
-  Audio.load(Settings.data)
+  Audio.load(Settings)
   Audio.applyVolumes()
 
   Tanks.init()
@@ -32,9 +40,7 @@ function love.load(args)
     save     = Save,
     settings = Settings,
     audio    = Audio,
-  })
-
-  -- Dedicated server / self-test modes: headless, no states.
+  })  -- Dedicated server / self-test / smoke-test modes: headless or windowed.
   for _, a in ipairs(args or {}) do
     if a == "--server" then
       local ok, err = pcall(function()
@@ -54,6 +60,10 @@ function love.load(args)
         os.exit(1)
       end
       return
+    elseif a == "--smoke" then
+      -- windowed smoke test: boot menu, then quit after 3s
+      SMOKE_TEST = true
+      SMOKE_START = love.timer.getTime()
     end
   end
 
@@ -66,6 +76,11 @@ end
 
 function love.update(dt)
   States.update(dt)
+  if SMOKE_TEST and love.timer.getTime() - SMOKE_START > 3 then
+    print("SMOKE TEST PASSED: menu booted, 3s simulated")
+    io.open("smoke.log", "w"):write("smoke ok " .. love.timer.getTime())
+    love.event.quit()
+  end
 end
 
 function love.draw()

@@ -12,13 +12,19 @@ local Modes    = require("data.modes")
 
 local T = Protocol.T
 local failures = 0
+local logLines = {}
+
+local function out(s)
+  print(s)
+  logLines[#logLines + 1] = s
+end
 
 local function check(cond, label)
   if cond then
-    print("  ok  - " .. label)
+    out("  ok  - " .. label)
   else
     failures = failures + 1
-    print("  FAIL- " .. label)
+    out("  FAIL- " .. label)
   end
 end
 
@@ -165,16 +171,24 @@ end
 
 return {
   run = function()
-    print("=== Steel Arena selftest ===")
+    out("=== Steel Arena selftest ===")
     local ok, err = pcall(function()
       testProtocol()
       testSim()
     end)
     if not ok then
       failures = failures + 1
-      print("TEST CRASH: " .. tostring(err))
+      out("TEST CRASH: " .. tostring(err))
     end
-    print(failures == 0 and "=== ALL TESTS PASSED ===" or ("=== " .. failures .. " FAILURES ==="))
+    out(failures == 0 and "=== ALL TESTS PASSED ===" or ("=== " .. failures .. " FAILURES ==="))
+    -- persist log next to the game for CI/inspection
+    pcall(function()
+      local f = io.open("selftest.log", "w")
+      if f then
+        f:write(table.concat(logLines, "\n"))
+        f:close()
+      end
+    end)
     return failures == 0
   end,
 }

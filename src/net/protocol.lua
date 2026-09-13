@@ -434,7 +434,7 @@ function Protocol.decode(data)
   if not d then return nil, nil, "no decoder for " .. tostring(msgType) end
   local ok, msg = pcall(d, r)
   if not ok then return nil, nil, msg end
-  return msgType, msg, r.p
+  return msgType, msg, r.p - 1   -- bytes consumed (r.p is next-read position)
 end
 
 -- Validation / clamping (server-side anti-cheat for loadouts).

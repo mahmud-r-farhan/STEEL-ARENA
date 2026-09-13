@@ -298,13 +298,13 @@ function Sim:tryFire(t)
   t.vx = t.vx - math.cos(a) * 30
   t.vy = t.vy - math.sin(a) * 30
 
-  self:onEvent({ kind = Protocol.EV.SHOT, tankId = t.id, x = bx, y = by,
+  self.onEvent({ kind = Protocol.EV.SHOT, tankId = t.id, x = bx, y = by,
     extra = (s.fireMode == "mg") and 1 or 0 })
 end
 
 function Sim:damage(target, amount, attackerId, hx, hy)
   if not target.alive or target.invuln > 0 then
-    self:onEvent({ kind = Protocol.EV.RICOCHET, tankId = target.id, x = hx, y = hy })
+    self.onEvent({ kind = Protocol.EV.RICOCHET, tankId = target.id, x = hx, y = hy })
     return
   end
   local dmg = amount
@@ -315,7 +315,7 @@ function Sim:damage(target, amount, attackerId, hx, hy)
   if attacker and attacker.id ~= target.id then
     attacker.damageDealt = attacker.damageDealt + math.min(dmg, target.hp + dmg)
     attacker.score = attacker.score + math.floor(dmg / 10)
-    self:onEvent({ kind = Protocol.EV.HIT, tankId = target.id, extra = attackerId,
+    self.onEvent({ kind = Protocol.EV.HIT, tankId = target.id, extra = attackerId,
       x = hx, y = hy, extra2 = math.floor(dmg) })
   end
 
@@ -349,8 +349,8 @@ function Sim:killTank(target, killerId)
     end
   end
 
-  self:onEvent({ kind = Protocol.EV.EXPLODE, tankId = target.id, x = target.x, y = target.y })
-  self:onEvent({
+  self.onEvent({ kind = Protocol.EV.EXPLODE, tankId = target.id, x = target.x, y = target.y })
+  self.onEvent({
     kind = Protocol.EV.KILL, tankId = killerId or 0, extra = target.id,
     x = target.x, y = target.y,
   })
@@ -360,7 +360,7 @@ function Sim:killTank(target, killerId)
     if f.carrier == target.id then
       f.carrier = 0
       f.x, f.y = target.x, target.y
-      self:onEvent({ kind = Protocol.EV.FLAG_DROPPED, tankId = target.id, x = f.x, y = f.y })
+      self.onEvent({ kind = Protocol.EV.FLAG_DROPPED, tankId = target.id, x = f.x, y = f.y })
     end
   end
 end
@@ -390,7 +390,7 @@ function Sim:respawn(t)
   t.reloadLeft = 0
   t.heat = 0
   t.fxShield, t.fxRapid, t.fxDamage, t.fxSpeed = 0, 0, 0, 0
-  self:onEvent({ kind = Protocol.EV.RESPAWN, tankId = t.id, x = t.x, y = t.y })
+  self.onEvent({ kind = Protocol.EV.RESPAWN, tankId = t.id, x = t.x, y = t.y })
 end
 
 --=============================================================================
@@ -415,7 +415,7 @@ function Sim:updatePowerups(dt)
       if p.respawn <= 0 then
         p.active = true
         p.kind = Sim.POWERUP_KEYS[self.rng:next(1, #Sim.POWERUP_KEYS)]
-        self:onEvent({ kind = Protocol.EV.PICKUP, tankId = 0, x = p.x, y = p.y, extra2 = 1 })
+        self.onEvent({ kind = Protocol.EV.PICKUP, tankId = 0, x = p.x, y = p.y, extra2 = 1 })
       end
     end
   end
@@ -429,7 +429,7 @@ function Sim:applyPowerup(t, kindIdx)
   else
     t["fx" .. key:sub(1,1):upper() .. key:sub(2)] = Sim.POWERUP_TIME
   end
-  self:onEvent({ kind = Protocol.EV.PICKUP, tankId = t.id, x = t.x, y = t.y,
+  self.onEvent({ kind = Protocol.EV.PICKUP, tankId = t.id, x = t.x, y = t.y,
     extra2 = kindIdx })
 end
 
@@ -451,7 +451,7 @@ function Sim:updateZones(dt)
         z.progress = z.progress + dt
         if z.progress >= 3 then
           z.owner, z.progress = 1, 0
-          self:onEvent({ kind = Protocol.EV.ZONE_CAPTURED, tankId = 0, x = z.x, y = z.y, extra = 1 })
+          self.onEvent({ kind = Protocol.EV.ZONE_CAPTURED, tankId = 0, x = z.x, y = z.y, extra = 1 })
         end
       end
     elseif b > a and a == 0 then
@@ -459,7 +459,7 @@ function Sim:updateZones(dt)
         z.progress = z.progress + dt
         if z.progress >= 3 then
           z.owner, z.progress = 2, 0
-          self:onEvent({ kind = Protocol.EV.ZONE_CAPTURED, tankId = 0, x = z.x, y = z.y, extra = 2 })
+          self.onEvent({ kind = Protocol.EV.ZONE_CAPTURED, tankId = 0, x = z.x, y = z.y, extra = 2 })
         end
       end
     else
@@ -491,7 +491,7 @@ function Sim:updateFlags(dt)
            and (t.x - f.x) ^ 2 + (t.y - f.y) ^ 2 < 40 * 40 then
           f.carrier = t.id
           t.hasFlag = true
-          self:onEvent({ kind = Protocol.EV.FLAG_TAKEN, tankId = t.id, x = f.x, y = f.y })
+          self.onEvent({ kind = Protocol.EV.FLAG_TAKEN, tankId = t.id, x = f.x, y = f.y })
           break
         end
       end
@@ -512,7 +512,7 @@ function Sim:updateFlags(dt)
               carrier.score = carrier.score + 300
               if carrier.team == 1 then self.scoreA = self.scoreA + 1
               else self.scoreB = self.scoreB + 1 end
-              self:onEvent({ kind = Protocol.EV.FLAG_CAPTURED, tankId = carrier.id,
+              self.onEvent({ kind = Protocol.EV.FLAG_CAPTURED, tankId = carrier.id,
                 x = base[1], y = base[2] })
             end
           end
@@ -633,7 +633,7 @@ function Sim:step(dt)
       -- walls
       if Maps.solidAt(self.map, b.x, b.y, 0) then
         dead = true
-        self:onEvent({ kind = Protocol.EV.HIT, tankId = 0, x = b.x, y = b.y, extra2 = 0 })
+        self.onEvent({ kind = Protocol.EV.HIT, tankId = 0, x = b.x, y = b.y, extra2 = 0 })
         break
       end
       -- tanks (friendly fire off in team modes: bullets pass through)
@@ -662,7 +662,7 @@ function Sim:step(dt)
           f.x, f.y = f.home[1], f.home[2]
           f.atBase = true
           f.returnTimer = nil
-          self:onEvent({ kind = Protocol.EV.FLAG_RETURNED, tankId = 0, x = f.x, y = f.y })
+          self.onEvent({ kind = Protocol.EV.FLAG_RETURNED, tankId = 0, x = f.x, y = f.y })
         end
       elseif f.atBase then
         f.returnTimer = nil
