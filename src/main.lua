@@ -4,6 +4,7 @@
 --
 -- Run client:      love src
 -- Run dedicated:   love src --server
+-- Self-test:       love src --selftest
 --=============================================================================
 
 local Save      = require("core.save")
@@ -21,6 +22,7 @@ function love.load(args)
   Settings.load()
   Save.load()
   Audio.load(Settings.data)
+  Audio.applyVolumes()
 
   Tanks.init()
   Maps.init()
