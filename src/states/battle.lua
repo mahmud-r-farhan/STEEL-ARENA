@@ -62,6 +62,9 @@ function Battle.enter(shared, opts)
       tankId = cfg.tankId,
     })
   end
+
+  -- apply settings to renderer
+  S.world.shakeEnabled = S.shared.settings.data.screen_shake ~= false
 end
 
 function Battle.leave()
@@ -714,6 +717,11 @@ function Battle.mousemoved(x, y)
 end
 
 function Battle.resize()
+end
+
+function Battle.wheelmoved(x, y)
+  -- camera zoom (clamped)
+  S.cam.zoom = math.max(0.55, math.min(1.6, (S.cam.zoom or 1) + y * 0.08))
 end
 
 return Battle

@@ -303,6 +303,20 @@ local function onLobbyList(conn)
   sendTo(conn, T.LOBBY_LIST, lobbyListMsg())
 end
 
+-- who is connected to the server and not in a room (for invites)
+local function onLobbyPlayers(conn)
+  local p = conn.data
+  if not p or p.id == 0 then return end
+  local players = {}
+  for _, other in pairs(Server.playersByConn) do
+    if not other.room and other.id ~= p.id then
+      players[#players + 1] = { id = other.id, name = other.name, level = other.level }
+    end
+  end
+  table.sort(players, function(a, b) return a.id < b.id end)
+  sendTo(conn, T.LOBBY_PLAYERS, { players = players })
+end
+
 local function onRoomCreate(conn, msg)
   local p = conn.data
   if not p or p.id == 0 then return sendError(conn, E.PROTOCOL, "handshake first") end
@@ -595,6 +609,7 @@ function Server.start(opts)
   transport:on(T.INPUT, onInput)
   transport:on(T.PING, onPing)
   transport:on(T.LOBBY_LIST, onLobbyList)
+  transport:on(T.LOBBY_PLAYERS, onLobbyPlayers)
   transport:on(T.ROOM_CREATE, onRoomCreate)
   transport:on(T.ROOM_JOIN, onRoomJoin)
   transport:on(T.ROOM_LEAVE, onRoomLeave)

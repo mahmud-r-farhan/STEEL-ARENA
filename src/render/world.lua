@@ -35,6 +35,7 @@ function World.new()
   self.particles = {}
   self.floaters = {}      -- damage numbers
   self.shake = 0
+  self.shakeEnabled = true
   self.time = 0
   return self
 end
@@ -53,7 +54,7 @@ function World:spawnExplosion(x, y, size)
       color = { 1, 0.55 + love.math.random() * 0.3, 0.15 },
     }
   end
-  self.shake = math.min(10, self.shake + 5 * size)
+  if self.shakeEnabled then self.shake = math.min(10, self.shake + 5 * size) end
 end
 
 function World:spawnMuzzle(x, y, angle, small)
@@ -75,7 +76,9 @@ function World:spawnMuzzle(x, y, angle, small)
       color = { 1, 0.9, 0.5 }, line = true, len = small and 12 or 26,
     }
   end
-  self.shake = math.min(10, self.shake + (small and 0.4 or 1.6))
+  if self.shakeEnabled then
+    self.shake = math.min(10, self.shake + (small and 0.4 or 1.6))
+  end
   self.flash = { x = x, y = y, t = 0.06, angle = angle }
 end
 

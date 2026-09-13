@@ -32,6 +32,7 @@ T.QUICK_MATCH  = 15
 T.DISCONNECT   = 16
 T.ACK          = 17   -- both directions: reliable-delivery ack
 T.START_MATCH  = 18   -- client->server (host only)
+T.LOBBY_PLAYERS= 19   -- client->server: who's connected and roomless
 -- server -> client
 T.WELCOME      = 64
 T.LOBBY_LIST   = 65
@@ -45,6 +46,7 @@ T.SNAPSHOT     = 72
 T.MATCH_END    = 73
 T.PONG         = 74
 T.RECONNECT_HINT = 75
+T.LOBBY_PLAYERS = 76
 Protocol.T = T
 
 -- snapshot event kinds
@@ -232,6 +234,24 @@ dec[T.ACK] = function(r) return { base = r:u16(), mask = r:u32() } end
 
 enc[T.START_MATCH] = function() end
 dec[T.START_MATCH] = function() return {} end
+
+enc[T.LOBBY_PLAYERS] = function() end
+dec[T.LOBBY_PLAYERS] = function() return {} end
+
+enc[T.LOBBY_PLAYERS] = function(w, m)
+  local ps = m.players or {}
+  w:u8(#ps)
+  for _, p in ipairs(ps) do
+    w:u16(p.id):str(p.name):u16(p.level or 1)
+  end
+end
+dec[T.LOBBY_PLAYERS] = function(r)
+  local ps, n = {}, r:u8()
+  for i = 1, n do
+    ps[i] = { id = r:u16(), name = r:str(), level = r:u16() }
+  end
+  return { players = ps }
+end
 
 -- --- S2C ---
 enc[T.WELCOME] = function(w, m) w:u16(m.playerId or 0):str(m.motd or "") end

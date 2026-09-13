@@ -43,6 +43,13 @@ function Room.update(dt)
   end
   c.lobbyRefresh = false
   c:update(dt)
+  if S.inviteOpen then
+    S.inviteAcc = (S.inviteAcc or 0) + dt
+    if S.inviteAcc > 0.5 then
+      S.inviteAcc = 0
+      c:requestLobbyPlayers()
+    end
+  end
   if c.match then
     States.switch("battle", {})
   elseif not c.room then
@@ -208,21 +215,27 @@ function Room.draw()
     Kit.text("ENTER send", 398, h - 106, 11, { 1, 1, 1, 0.4 })
   end
 
-  -- invite overlay
+  -- invite overlay: lists real lobby players (no room) and sends invites
   if S.inviteOpen then
-    local iw, ih = 360, 300
+    local iw, ih = 400, 340
     local ix, iy = w / 2 - iw / 2, h / 2 - ih / 2
     Kit.panel(ix, iy, iw, ih)
     Kit.text("INVITE PLAYERS", ix + 16, iy + 12, 16, { 0.92, 0.94, 0.97 })
-    Kit.text("Players currently in the server lobby (not in a room):",
-      ix + 16, iy + 40, 12, { 0.6, 0.64, 0.7 })
-    local oy = iy + 62
-    local any = false
-    -- NOTE: full server-wide player list is not exposed by LOBBY_LIST;
-    -- inviting works from the PLAY screen player directory or via room code.
-    Kit.text("Ask friends to join, or share the room id #" .. room.id,
-      ix + 16, oy, 13, { 0.85, 0.9, 0.95 })
-    Kit.text("They will see this room in the browser.", ix + 16, oy + 22, 13, { 0.7, 0.74, 0.8 })
+    Kit.text("Connected players without a room:", ix + 16, iy + 40, 12, { 0.6, 0.64, 0.7 })
+    local list = c.lobbyPlayers or {}
+    if #list == 0 then
+      Kit.text("Nobody waiting in the lobby right now.", ix + 16, iy + 66, 13, { 0.7, 0.74, 0.8 })
+    end
+    local oy = iy + 66
+    for _, lp in ipairs(list) do
+      if oy > iy + ih - 50 then break end
+      Kit.text(lp.name .. "  (L" .. lp.level .. ")", ix + 16, oy + 6, 13, { 0.85, 0.9, 0.95 })
+      if Kit.button("inv" .. lp.id, "INVITE", ix + iw - 100, oy, 80, 24, { fontSize = 11 }) then
+        c:invite(lp.id)
+        c:showToast("Invite sent to " .. lp.name)
+      end
+      oy = oy + 30
+    end
     if Kit.button("iclose", "CLOSE", ix + iw - 100, iy + ih - 40, 84, 28) then
       S.inviteOpen = false
     end

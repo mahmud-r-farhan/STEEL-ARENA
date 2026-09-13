@@ -39,6 +39,7 @@ function Client.new(services)
   c.ping = 0
 
   c.lobbyRooms = {}
+  c.lobbyPlayers = {}       -- connected players without a room
   c.room = nil              -- last ROOM_STATE
   c.chatLog = {}            -- {name=, text=, system=bool}
   c.invites = {}            -- active invites
@@ -90,6 +91,9 @@ function Client:connect(host, port)
   end)
   tr:on(T.LOBBY_LIST, function(conn, msg)
     self.lobbyRooms = msg.rooms or {}
+  end)
+  tr:on(T.LOBBY_PLAYERS, function(conn, msg)
+    self.lobbyPlayers = msg.players or {}
   end)
   tr:on(T.ROOM_STATE, function(conn, msg)
     self.room = msg
@@ -191,6 +195,7 @@ function Client:sendRaw(t, msg)
 end
 
 function Client:requestLobby() self:sendRaw(T.LOBBY_LIST, {}) end
+function Client:requestLobbyPlayers() self:sendRaw(T.LOBBY_PLAYERS, {}) end
 function Client:quickMatch(modeId) self:sendRaw(T.QUICK_MATCH, { modeId = modeId }) end
 function Client:createRoom(cfg) self:sendRaw(T.ROOM_CREATE, cfg) end
 function Client:joinRoom(id, password) self:sendRaw(T.ROOM_JOIN, { roomId = id, password = password or "" }) end
@@ -453,6 +458,7 @@ function Client:update(dt, input)
     if self.lobbyRefreshAcc > 2.5 then
       self.lobbyRefreshAcc = 0
       self:requestLobby()
+      self:requestLobbyPlayers()
     end
   end
 
