@@ -105,13 +105,14 @@ jobs:
           retention-days: 14
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish_release == true
+        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || inputs.publish_release == true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', steps.get_version.outputs.VERSION) }}
           name: Steel Arena v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
+          make_latest: true
           generate_release_notes: true
           body: |
             # 🚀 Steel Arena v${{ steps.get_version.outputs.VERSION }}
