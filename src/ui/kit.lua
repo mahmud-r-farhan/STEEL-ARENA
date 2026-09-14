@@ -13,6 +13,8 @@ gfx = gfx
 
 local Kit = {
   mouse = { x = 0, y = 0, down = false, pressed = false, released = false, wheel = 0 },
+  _pressedQueue = false,
+  _releasedQueue = false,
   hot = nil,
   active = nil,
   textCapture = nil,
@@ -33,16 +35,33 @@ local function inRect(px, py, x, y, w, h)
   return px >= x and px <= x + w and py >= y and py <= y + h
 end
 
-function Kit.newFrame()
-  Kit.mouse.pressed = false
+function Kit.getMouse()
+  return Kit.mouse.x or 0, Kit.mouse.y or 0
+end
+
+function Kit.clearClick()
   Kit.mouse.released = false
+  Kit._releasedQueue = false
+end
+
+function Kit.newFrame()
+  -- Promote queued release/press from input events to current frame
+  Kit.mouse.pressed = Kit._pressedQueue or Kit.mouse.pressed
+  Kit.mouse.released = Kit._releasedQueue or Kit.mouse.released
+  Kit._pressedQueue = false
+  Kit._releasedQueue = false
   Kit.mouse.wheel = 0
+
+  if love and love.mouse and love.mouse.isDown then
+    Kit.mouse.down = Kit.mouse.down or love.mouse.isDown(1)
+  end
 end
 
 function Kit.mousepressed(x, y, button)
   if button == 1 then
     Kit.mouse.down = true
     Kit.mouse.pressed = true
+    Kit._pressedQueue = true
     Kit.mouse.x, Kit.mouse.y = x, y
   end
 end
@@ -51,6 +70,7 @@ function Kit.mousereleased(x, y, button)
   if button == 1 then
     Kit.mouse.down = false
     Kit.mouse.released = true
+    Kit._releasedQueue = true
     Kit.mouse.x, Kit.mouse.y = x, y
   end
 end
@@ -99,10 +119,14 @@ end
 
 function Kit.button(id, label, x, y, w, h, opts)
   opts = opts or {}
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local hov = inRect(mx, my, x, y, w, h)
-  local down = hov and Kit.mouse.down
-  local clicked = hov and Kit.mouse.released
+  local isDown = Kit.mouse.down or (love and love.mouse and love.mouse.isDown and love.mouse.isDown(1))
+  local down = hov and isDown
+  local clicked = hov and (Kit.mouse.released or Kit._releasedQueue)
+  if clicked then
+    Kit.clearClick()
+  end
 
   local base = opts.color or { 0.16, 0.2, 0.26 }
   local alpha = opts.color and opts.color[4] or 1
@@ -126,11 +150,15 @@ function Kit.button(id, label, x, y, w, h, opts)
 end
 
 function Kit.toggle(id, label, x, y, w, h, value)
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local boxH = math.min(22, h)
   local boxW = 44
   local hit = inRect(mx, my, x, y, w, h)
-  if hit and Kit.mouse.released then value = not value end
+  local clicked = hit and (Kit.mouse.released or Kit._releasedQueue)
+  if clicked then
+    value = not value
+    Kit.clearClick()
+  end
   gfx.setColor(value and { 0.25, 0.55, 0.3 } or { 0.3, 0.32, 0.36 })
   gfx.rectangle("fill", x, y + (h - boxH) / 2, boxW, boxH, 11)
   local kx = value and (x + boxW - boxH + 3) or (x + 3)
@@ -139,19 +167,22 @@ function Kit.toggle(id, label, x, y, w, h, value)
   if label then
     Kit.text(label, x + boxW + 10, y + h / 2 - 8, 14)
   end
-  return value, (hit and Kit.mouse.released)
+  return value, clicked
 end
 
 function Kit.slider(id, x, y, w, value, lo, hi)
   lo, hi = lo or 0, hi or 1
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local h = 20
   local hit = inRect(mx, my, x - 6, y - 8, w + 12, h + 8)
-  if hit and Kit.mouse.down then Kit.active = id end
+  local isDown = Kit.mouse.down or (love and love.mouse and love.mouse.isDown and love.mouse.isDown(1))
+  if hit and (Kit.mouse.pressed or Kit._pressedQueue or isDown) then
+    Kit.active = id
+  end
   if Kit.active == id then
     local k = math.min(1, math.max(0, (mx - x) / w))
     value = lo + (hi - lo) * k
-    if not Kit.mouse.down then Kit.active = nil end
+    if not isDown then Kit.active = nil end
   end
   gfx.setColor(0.25, 0.28, 0.33)
   gfx.rectangle("fill", x, y + h / 2 - 3, w, 6, 3)
@@ -165,9 +196,12 @@ end
 
 function Kit.textInput(id, x, y, w, h, value, placeholder, opts)
   opts = opts or {}
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local hov = inRect(mx, my, x, y, w, h)
-  if hov and Kit.mouse.pressed then Kit.textCapture = id end
+  if hov and (Kit.mouse.pressed or Kit._pressedQueue or Kit.mouse.released or Kit._releasedQueue) then
+    Kit.textCapture = id
+    Kit.clearClick()
+  end
   local active = (Kit.textCapture == id)
 
   gfx.setColor(active and { 0.13, 0.17, 0.22 } or { 0.1, 0.12, 0.16 })
@@ -194,19 +228,23 @@ function Kit.textInput(id, x, y, w, h, value, placeholder, opts)
 end
 
 function Kit.listRow(id, x, y, w, h)
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local hov = inRect(mx, my, x, y, w, h)
   if hov then
     gfx.setColor(1, 1, 1, 0.05)
     gfx.rectangle("fill", x, y, w, h, 6)
   end
-  return hov and Kit.mouse.released
+  local clicked = hov and (Kit.mouse.released or Kit._releasedQueue)
+  if clicked then
+    Kit.clearClick()
+  end
+  return clicked
 end
 
 function Kit.scrollArea(id, x, y, w, h, contentH, wheelDelta, currentOffset)
   local offset = currentOffset or 0
   local maxOff = math.max(0, contentH - h)
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   local hov = inRect(mx, my, x, y, w, h)
   local delta = wheelDelta or Kit.mouse.wheel or 0
   if hov and delta ~= 0 then
@@ -237,12 +275,16 @@ end
 function Kit.tabs(id, labels, x, y, w, h, selected)
   local n = #labels
   local bw = w / n
-  local mx, my = Kit.mouse.x, Kit.mouse.y
+  local mx, my = Kit.getMouse()
   for i, label in ipairs(labels) do
     local bx = x + (i - 1) * bw
     local hov = inRect(mx, my, bx, y, bw, h)
     local isSel = (selected == i)
-    if hov and Kit.mouse.released then selected = i end
+    local clicked = hov and (Kit.mouse.released or Kit._releasedQueue)
+    if clicked then
+      selected = i
+      Kit.clearClick()
+    end
     gfx.setColor(isSel and { 0.22, 0.32, 0.42 } or { 0.12, 0.15, 0.19 })
     gfx.rectangle("fill", bx + 2, y, bw - 4, h, 6)
     gfx.setColor(isSel and { 0.55, 0.8, 1 } or { 0.65, 0.68, 0.72 })

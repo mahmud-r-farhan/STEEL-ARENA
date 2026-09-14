@@ -19,6 +19,7 @@ local Modes     = require("data.modes")
 local States    = require("core.state")
 local Audio     = require("core.audio")
 local Viewport  = require("core.viewport")
+local Kit       = require("ui.kit")
 
 local love_errorhandler = love.errorhandler
 
@@ -44,9 +45,12 @@ function love.load(args)
     viewport = Viewport,
   })
 
+  Viewport.update()
+
   if love and love.mouse and love.mouse.getPosition then
     local _rawGetPos = love.mouse.getPosition
     love.mouse.getPosition = function()
+      Viewport.update()
       local rx, ry = _rawGetPos()
       return Viewport.toVirtual(rx, ry)
     end
@@ -125,6 +129,7 @@ function love.draw()
     print(debug.traceback(e, 2))
   end)
   Viewport.pop()
+  Kit.clearClick()
   if not ok then love.event.quit() end
 end
 
@@ -137,41 +142,60 @@ function love.keyreleased(key, scancode)
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
+  Viewport.update()
   local vx, vy = Viewport.toVirtual(x, y)
   States.mousepressed(vx, vy, button, istouch, presses)
 end
 
 function love.mousereleased(x, y, button, istouch, presses)
+  Viewport.update()
   local vx, vy = Viewport.toVirtual(x, y)
   States.mousereleased(vx, vy, button, istouch, presses)
 end
 
 function love.mousemoved(x, y, dx, dy, istouch)
+  Viewport.update()
   local vx, vy = Viewport.toVirtual(x, y)
   local scale = Viewport.scale > 0 and Viewport.scale or 1
   States.mousemoved(vx, vy, dx / scale, dy / scale, istouch)
 end
 
+local function denormTouch(x, y, dx, dy)
+  local gw = (love and love.graphics and love.graphics.getWidth) and love.graphics.getWidth() or 1280
+  local gh = (love and love.graphics and love.graphics.getHeight) and love.graphics.getHeight() or 720
+  local px = (x <= 1 and y <= 1) and (x * gw) or x
+  local py = (x <= 1 and y <= 1) and (y * gh) or y
+  local pdx = (dx and math.abs(dx) <= 1) and (dx * gw) or (dx or 0)
+  local pdy = (dy and math.abs(dy) <= 1) and (dy * gh) or (dy or 0)
+  return px, py, pdx, pdy
+end
+
 function love.touchpressed(id, x, y, dx, dy, pressure)
   Viewport.touchActive = true
-  local vx, vy = Viewport.toVirtual(x, y)
+  Viewport.update()
+  local px, py, pdx, pdy = denormTouch(x, y, dx, dy)
+  local vx, vy = Viewport.toVirtual(px, py)
   local scale = Viewport.scale > 0 and Viewport.scale or 1
-  States.touchpressed(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
+  States.touchpressed(id, vx, vy, pdx / scale, pdy / scale, pressure)
   States.mousepressed(vx, vy, 1, true, 1)
 end
 
 function love.touchreleased(id, x, y, dx, dy, pressure)
-  local vx, vy = Viewport.toVirtual(x, y)
+  Viewport.update()
+  local px, py, pdx, pdy = denormTouch(x, y, dx, dy)
+  local vx, vy = Viewport.toVirtual(px, py)
   local scale = Viewport.scale > 0 and Viewport.scale or 1
-  States.touchreleased(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
+  States.touchreleased(id, vx, vy, pdx / scale, pdy / scale, pressure)
   States.mousereleased(vx, vy, 1, true, 1)
 end
 
 function love.touchmoved(id, x, y, dx, dy, pressure)
-  local vx, vy = Viewport.toVirtual(x, y)
+  Viewport.update()
+  local px, py, pdx, pdy = denormTouch(x, y, dx, dy)
+  local vx, vy = Viewport.toVirtual(px, py)
   local scale = Viewport.scale > 0 and Viewport.scale or 1
-  States.touchmoved(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
-  States.mousemoved(vx, vy, (dx or 0) / scale, (dy or 0) / scale, true)
+  States.touchmoved(id, vx, vy, pdx / scale, pdy / scale, pressure)
+  States.mousemoved(vx, vy, pdx / scale, pdy / scale, true)
 end
 
 function love.wheelmoved(x, y)

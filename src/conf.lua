@@ -22,9 +22,10 @@ function love.conf(t)
     t.window.vsync = 1
     t.window.resizable = true
     t.window.minwidth = 960
-    t.window.minheight = 600
-    t.window.highdpi = true
+    t.window.highdpi = false
+    t.window.usedpiscale = false
   end
+  t.modules.touch = true
   t.modules.joystick = false
   t.modules.physics = false
 end

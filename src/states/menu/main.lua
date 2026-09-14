@@ -95,31 +95,31 @@ function Main.draw()
   local px, py = 30, 200
   Kit.panel(px, py, 380, 240)
   Kit.text("CALLSIGN", px + 16, py + 14, 12, { 0.6, 0.64, 0.7 })
-  S.nameBuf = Kit.textInput("name", px + 16, py + 32, 200, 28, S.nameBuf, "your name")
+  S.nameBuf = Kit.textInput("name", px + 16, py + 32, 348, 28, S.nameBuf, "your name")
   Kit.text("SERVER", px + 16, py + 74, 12, { 0.6, 0.64, 0.7 })
-  S.hostBuf = Kit.textInput("host", px + 16, py + 92, 200, 28, S.hostBuf, "ip or host")
+  S.hostBuf = Kit.textInput("host", px + 16, py + 92, 348, 28, S.hostBuf, "ip or host")
   Kit.text("profile L" .. save.data.level .. "   " .. save.data.credits .. " CR",
     px + 16, py + 130, 13, { 1, 0.85, 0.35 })
 
   if S.client.status == "connected" then
-    if Kit.button("disc", "DISCONNECT", px + 16, py + 156, 200, 32) then
+    if Kit.button("disc", "DISCONNECT", px + 16, py + 156, 348, 32) then
       S.client:disconnect()
     end
-    if Kit.button("lobby", "MULTIPLAYER LOBBY", px + 16, py + 196, 200, 32, { color = { 0.2, 0.4, 0.25 } }) then
+    if Kit.button("lobby", "MULTIPLAYER LOBBY", px + 16, py + 196, 348, 32, { color = { 0.2, 0.4, 0.25 } }) then
       States_switch("menu.play")
     end
   else
-    if Kit.button("connect", "CONNECT", px + 16, py + 156, 200, 32, { color = { 0.2, 0.35, 0.5 } }) then
+    if Kit.button("connect", "CONNECT", px + 16, py + 156, 348, 32, { color = { 0.2, 0.35, 0.5 } }) then
       local name = S.nameBuf:match("^%s*(.-)%s*$")
-      if #name >= 2 then
-        S.shared.save.data.name = name
-        S.shared.save.dirty = true
-        S.shared.settings.data.last_server = S.hostBuf
-        S.shared.settings.save()
-        S.client:connect(S.hostBuf)
-      else
-        S.error = "Name needs 2+ characters"
+      if not name or #name < 2 then
+        name = "Commander"
+        S.nameBuf = name
       end
+      S.shared.save.data.name = name
+      S.shared.save.dirty = true
+      S.shared.settings.data.last_server = S.hostBuf
+      S.shared.settings.save()
+      S.client:connect(S.hostBuf)
     end
   end
 
@@ -127,22 +127,31 @@ function Main.draw()
   local qx, qy = w - 430, 200
   Kit.panel(qx, qy, 400, 240)
   Kit.text("QUICK PLAY", qx + 16, qy + 14, 12, { 0.6, 0.64, 0.7 })
-  if Kit.button("solo", "SOLO ASSAULT (PvE)", qx + 16, qy + 36, 200, 34) then
+
+  -- Solo PvE: direct launch button + setup toggle button
+  if Kit.button("solo", "START SOLO (PvE)", qx + 16, qy + 36, 246, 34, { color = { 0.2, 0.48, 0.28 } }) then
+    States_switch("battle", { mode = "solo", config = {
+      mapId = S.solo.mapId, modeId = "solo", enemies = S.solo.enemies,
+      allies = S.solo.allies, difficulty = S.solo.difficulty, tankId = S.shared.save.data.selected,
+    } })
+  end
+  if Kit.button("solocfg", S.showSoloCfg and "SETUP ▲" or "SETUP ▼", qx + 270, qy + 36, 114, 34) then
     S.showSoloCfg = not S.showSoloCfg
   end
-  if Kit.button("hostinfo", "HOST A SERVER", qx + 16, qy + 78, 200, 30) then
+
+  if Kit.button("hostinfo", "HOST A SERVER", qx + 16, qy + 78, 368, 30) then
     S.showHostInfo = not S.showHostInfo
   end
-  if Kit.button("store", "STORE", qx + 16, qy + 116, 96, 32, { color = { 0.35, 0.28, 0.12 } }) then
-    States_switch("menu.store")
+  if Kit.button("store", "STORE", qx + 16, qy + 116, 178, 32, { color = { 0.35, 0.28, 0.12 } }) then
+    States.push("menu.store")
   end
-  if Kit.button("garage", "GARAGE", qx + 122, qy + 116, 94, 32, { color = { 0.12, 0.28, 0.35 } }) then
-    States_switch("menu.garage")
+  if Kit.button("garage", "GARAGE", qx + 206, qy + 116, 178, 32, { color = { 0.12, 0.28, 0.35 } }) then
+    States.push("menu.garage")
   end
-  if Kit.button("settings", "SETTINGS", qx + 16, qy + 156, 96, 32) then
+  if Kit.button("settings", "SETTINGS", qx + 16, qy + 156, 178, 32) then
     States.push("menu.settings")
   end
-  if Kit.button("quit", "QUIT", qx + 122, qy + 156, 94, 32, { color = { 0.4, 0.15, 0.15 } }) then
+  if Kit.button("quit", "QUIT", qx + 206, qy + 156, 178, 32, { color = { 0.45, 0.15, 0.15 } }) then
     love.event.quit()
   end
 

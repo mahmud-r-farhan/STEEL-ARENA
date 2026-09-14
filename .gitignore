@@ -20,6 +20,7 @@ tools/love/
 *.log
 smoke_out.txt
 net_out.txt
+self_out.txt
 
 # Local dev
 /conf/local.lua

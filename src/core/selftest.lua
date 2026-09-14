@@ -226,6 +226,43 @@ local function testSaveAndSettings()
   check(type(Settings.data.screen_shake) == "boolean", "Settings.data.screen_shake exists")
 end
 
+local function testUI()
+  out("[ui]")
+  local Kit = require("ui.kit")
+
+  -- Reset Kit state
+  Kit.newFrame()
+  Kit.clearClick()
+
+  -- Simulate mouse click on a button at (100, 100, 80, 30)
+  Kit.mousemoved(110, 110)
+  Kit.mousepressed(110, 110, 1)
+  Kit.mousereleased(110, 110, 1)
+
+  -- New frame should promote release
+  Kit.newFrame()
+  local clicked1 = Kit.button("btn1", "TEST1", 100, 100, 80, 30)
+  check(clicked1 == true, "Kit.button triggers on release inside bounds")
+
+  -- Click should be consumed, not fire on second button
+  local clicked2 = Kit.button("btn2", "TEST2", 100, 100, 80, 30)
+  check(clicked2 == false, "Kit.button click consumed by first match")
+
+  -- Next frame without click should not trigger
+  Kit.newFrame()
+  local clicked3 = Kit.button("btn1", "TEST1", 100, 100, 80, 30)
+  check(clicked3 == false, "Kit.button does not trigger without new click")
+
+  -- Click outside bounds should not trigger
+  Kit.mousemoved(300, 300)
+  Kit.mousepressed(300, 300, 1)
+  Kit.mousereleased(300, 300, 1)
+  Kit.newFrame()
+  local clicked4 = Kit.button("btn1", "TEST1", 100, 100, 80, 30)
+  check(clicked4 == false, "Kit.button ignores clicks outside bounds")
+  Kit.clearClick()
+end
+
 return {
   run = function()
     out("=== Steel Arena selftest ===")
@@ -234,6 +271,7 @@ return {
       testProtocol()
       testSim()
       testSaveAndSettings()
+      testUI()
     end)
     if not ok then
       failures = failures + 1
