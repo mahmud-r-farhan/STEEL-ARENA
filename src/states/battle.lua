@@ -65,6 +65,11 @@ function Battle.enter(shared, opts)
 
   -- apply settings to renderer
   S.world.shakeEnabled = S.shared.settings.data.screen_shake ~= false
+
+  S.touchEnabled = (S.shared.settings and S.shared.settings.data.touch_controls == true) or
+                   (love.system and love.system.getOS and (love.system.getOS() == "Android" or love.system.getOS() == "iOS")) or false
+  S.leftStick = { active = false, id = nil, baseX = 160, baseY = 560, curX = 160, curY = 560 }
+  S.rightAim  = { active = false, id = nil, baseX = 1120, baseY = 560, curX = 1120, curY = 560 }
 end
 
 function Battle.leave()
@@ -114,6 +119,31 @@ local function buildInput()
     turret = atan2(wy - me.y, wx - me.x)
   end
   local fire = love.mouse.isDown(1) or k("space")
+
+  -- Touch controls integration
+  if S.leftStick and S.leftStick.active then
+    local dx = S.leftStick.curX - S.leftStick.baseX
+    local dy = S.leftStick.curY - S.leftStick.baseY
+    local dist = math.sqrt(dx * dx + dy * dy)
+    if dist > 12 then
+      local maxR = 60
+      local nx = math.max(-1, math.min(1, dx / maxR))
+      local ny = math.max(-1, math.min(1, dy / maxR))
+      if ny < -0.22 then move = move + 1 end
+      if ny > 0.22 then move = move - 1 end
+      if nx > 0.22 then turn = turn + 1 end
+      if nx < -0.22 then turn = turn - 1 end
+    end
+  end
+
+  if S.rightAim and S.rightAim.active then
+    local wx, wy = screenToWorld(S.rightAim.curX, S.rightAim.curY)
+    if me then
+      turret = atan2(wy - me.y, wx - me.x)
+      fire = true
+    end
+  end
+
   if S.chatOpen or S.paused then
     move, turn, fire = 0, 0, false
   end
@@ -643,6 +673,83 @@ local function drawPause()
   end
 end
 
+local function drawTouchControls()
+  local show = S.touchEnabled or (S.shared and S.shared.settings and S.shared.settings.data.touch_controls) or (love.system and love.system.getOS and (love.system.getOS() == "Android" or love.system.getOS() == "iOS"))
+  if not show then return end
+
+  -- Top right: Pause [ || ]
+  gfx.setColor(0.12, 0.15, 0.2, 0.75)
+  gfx.rectangle("fill", 1280 - 64, 16, 48, 36, 6)
+  gfx.setColor(1, 1, 1, 0.2)
+  gfx.rectangle("line", 1280 - 63.5, 16.5, 47, 35, 6)
+  gfx.setColor(0.9, 0.92, 0.95, 0.9)
+  Kit._font(14)
+  gfx.printf("||", 1280 - 64, 25, 48, "center")
+
+  -- Top right: Score [ TAB ]
+  gfx.setColor(0.12, 0.15, 0.2, 0.75)
+  gfx.rectangle("fill", 1280 - 130, 16, 56, 36, 6)
+  gfx.setColor(1, 1, 1, 0.2)
+  gfx.rectangle("line", 1280 - 129.5, 16.5, 55, 35, 6)
+  gfx.setColor(0.9, 0.92, 0.95, 0.9)
+  Kit._font(12)
+  gfx.printf("TAB", 1280 - 130, 26, 56, "center")
+
+  -- Top left: Zoom buttons [ - ] [ + ]
+  gfx.setColor(0.12, 0.15, 0.2, 0.75)
+  gfx.rectangle("fill", 16, 16, 36, 36, 6)
+  gfx.rectangle("fill", 58, 16, 36, 36, 6)
+  gfx.setColor(1, 1, 1, 0.2)
+  gfx.rectangle("line", 16.5, 16.5, 35, 35, 6)
+  gfx.rectangle("line", 58.5, 16.5, 35, 35, 6)
+  gfx.setColor(0.9, 0.92, 0.95, 0.9)
+  Kit._font(16)
+  gfx.printf("-", 16, 23, 36, "center")
+  gfx.printf("+", 58, 23, 36, "center")
+
+  -- Left Drive Joystick
+  local lx = S.leftStick.active and S.leftStick.baseX or 160
+  local ly = S.leftStick.active and S.leftStick.baseY or 560
+  local curLx = S.leftStick.active and S.leftStick.curX or lx
+  local curLy = S.leftStick.active and S.leftStick.curY or ly
+
+  gfx.setColor(0.12, 0.17, 0.24, 0.45)
+  gfx.circle("fill", lx, ly, 65)
+  gfx.setColor(0.35, 0.65, 0.95, 0.4)
+  gfx.setLineWidth(2)
+  gfx.circle("line", lx, ly, 65)
+  gfx.setColor(1, 1, 1, 0.25)
+  Kit._font(11)
+  gfx.printf("DRIVE", lx - 30, ly - 6, 60, "center")
+
+  gfx.setColor(0.3, 0.6, 0.9, 0.75)
+  gfx.circle("fill", curLx, curLy, 28)
+  gfx.setColor(1, 1, 1, 0.6)
+  gfx.setLineWidth(1.5)
+  gfx.circle("line", curLx, curLy, 28)
+
+  -- Right Aim & Fire Zone
+  local rx = S.rightAim.active and S.rightAim.baseX or 1120
+  local ry = S.rightAim.active and S.rightAim.baseY or 560
+  local curRx = S.rightAim.active and S.rightAim.curX or rx
+  local curRy = S.rightAim.active and S.rightAim.curY or ry
+
+  gfx.setColor(0.24, 0.12, 0.12, 0.45)
+  gfx.circle("fill", rx, ry, 65)
+  gfx.setColor(0.95, 0.35, 0.25, 0.4)
+  gfx.setLineWidth(2)
+  gfx.circle("line", rx, ry, 65)
+  Kit._font(11)
+  gfx.setColor(1, 1, 1, 0.25)
+  gfx.printf("AIM/FIRE", rx - 35, ry - 6, 70, "center")
+
+  gfx.setColor(0.9, 0.35, 0.25, 0.75)
+  gfx.circle("fill", curRx, curRy, 28)
+  gfx.setColor(1, 1, 1, 0.6)
+  gfx.setLineWidth(1.5)
+  gfx.circle("line", curRx, curRy, 28)
+end
+
 function Battle.draw()
   local w, h = W(), H()
   gfx.clear(0.05, 0.06, 0.08)
@@ -654,6 +761,9 @@ function Battle.draw()
   drawHUD(tanks, modeState)
   if S.showScore then
     drawScoreboard(tanks)
+  end
+  if not S.paused and not S.client.results then
+    drawTouchControls()
   end
   if S.client.results then
     drawResults()
@@ -704,8 +814,89 @@ function Battle.textinput(text)
   end
 end
 
-function Battle.mousepressed(x, y, button)
+function Battle.mousepressed(x, y, button, istouch)
+  if not S.client.results and not S.paused then
+    if x >= 1280 - 64 and x <= 1280 - 16 and y >= 16 and y <= 52 then
+      S.paused = true
+      return
+    elseif x >= 1280 - 130 and x <= 1280 - 74 and y >= 16 and y <= 52 then
+      S.showScore = not S.showScore
+      return
+    elseif x >= 16 and x <= 52 and y >= 16 and y <= 52 then
+      S.cam.zoom = math.max(0.55, (S.cam.zoom or 1) - 0.15)
+      return
+    elseif x >= 58 and x <= 94 and y >= 16 and y <= 52 then
+      S.cam.zoom = math.min(1.6, (S.cam.zoom or 1) + 0.15)
+      return
+    end
+  end
   Kit.mousepressed(x, y, button)
+end
+
+function Battle.touchpressed(id, x, y, dx, dy, pressure)
+  S.touchEnabled = true
+  if not S.client.results and not S.paused then
+    -- Check top HUD touch buttons
+    if x >= 1280 - 64 and x <= 1280 - 16 and y >= 16 and y <= 52 then
+      S.paused = true
+      return
+    elseif x >= 1280 - 130 and x <= 1280 - 74 and y >= 16 and y <= 52 then
+      S.showScore = not S.showScore
+      return
+    elseif x >= 16 and x <= 52 and y >= 16 and y <= 52 then
+      S.cam.zoom = math.max(0.55, (S.cam.zoom or 1) - 0.15)
+      return
+    elseif x >= 58 and x <= 94 and y >= 16 and y <= 52 then
+      S.cam.zoom = math.min(1.6, (S.cam.zoom or 1) + 0.15)
+      return
+    end
+
+    if x < 1280 / 2 then
+      if not S.leftStick.active then
+        S.leftStick.active = true
+        S.leftStick.id = id
+        S.leftStick.baseX = x
+        S.leftStick.baseY = y
+        S.leftStick.curX = x
+        S.leftStick.curY = y
+      end
+    else
+      if not S.rightAim.active then
+        S.rightAim.active = true
+        S.rightAim.id = id
+        S.rightAim.baseX = x
+        S.rightAim.baseY = y
+        S.rightAim.curX = x
+        S.rightAim.curY = y
+      end
+    end
+  end
+end
+
+function Battle.touchmoved(id, x, y, dx, dy, pressure)
+  if S.leftStick.active and S.leftStick.id == id then
+    S.leftStick.curX = x
+    S.leftStick.curY = y
+  end
+  if S.rightAim.active and S.rightAim.id == id then
+    S.rightAim.curX = x
+    S.rightAim.curY = y
+  end
+end
+
+function Battle.touchreleased(id, x, y, dx, dy, pressure)
+  if S.leftStick.id == id then
+    S.leftStick.active = false
+    S.leftStick.id = nil
+    S.leftStick.curX = S.leftStick.baseX
+    S.leftStick.curY = S.leftStick.baseY
+  end
+  if S.rightAim.id == id then
+    S.rightAim.active = false
+    S.rightAim.id = nil
+    S.rightAim.curX = S.rightAim.baseX
+    S.rightAim.curY = S.rightAim.baseY
+  end
 end
 
 function Battle.mousereleased(x, y, button)

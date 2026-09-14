@@ -10,6 +10,7 @@ local Settings = {
     show_fps = false,
     screen_shake = true,
     mouse_sensitivity = 1.0,
+    touch_controls = false,
     name     = nil,
     last_server = nil,
   },

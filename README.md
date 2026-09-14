@@ -17,7 +17,18 @@ Internet play with an authoritative UDP server, persistent progression, five gam
 | **Combat feel** | Turret traversal, reload bars, hit markers, damage numbers, ricochets, power-ups (repair/shield/rapid/HE/nitro), screen shake |
 | **Maps** | 4 handcrafted arenas: Outpost, Dunes, Foundry, Fortress |
 
-## Quick start
+## Downloads & Quick Start
+
+### 📦 Pre-built Release Packages (GitHub Releases)
+- **Windows (No Install Required)**: Download `steel-arena-windows-x64.zip` from the latest GitHub Release, extract it, and double-click `steel-arena.exe` (or `start-game.bat`).
+- **Android**: Download and install `steel-arena-android.apk` to play on Android phones and tablets with full on-screen virtual twin-stick controls. You can also open `steel-arena.love` directly in the official [LÖVE for Android](https://play.google.com/store/apps/details?id=org.love2d.android) app.
+- **Web (Browser Play)**: Download `steel-arena-web.zip` or access the hosted web version to play instantly in any modern web browser via WebAssembly.
+- **Linux**: Download `steel-arena-linux.tar.gz`, extract, and execute `./start-game.sh`.
+- **Universal (.love)**: Download `steel-arena.love` and run directly on macOS, Steam Deck, or Linux with `love steel-arena.love`.
+
+---
+
+### 💻 Running from Source
 
 1. **Install LÖVE 11.5** → https://love2d.org (or let the dev script fetch it — see `tools/fetch-love.sh`).
 2. **Play solo right away**
@@ -46,6 +57,7 @@ Internet play with an authoritative UDP server, persistent progression, five gam
 
 ## Controls
 
+### Desktop (Keyboard & Mouse)
 | Input | Action |
 |---|---|
 | **W / S** or **↑ / ↓** | Drive forward / reverse |
@@ -56,6 +68,16 @@ Internet play with an authoritative UDP server, persistent progression, five gam
 | **TAB** (hold) | Scoreboard |
 | **ENTER** | Chat (battles + room lobby) |
 | **ESC** | Pause / back |
+
+### Mobile & Touchscreen (Android / Tablets)
+| Control | Action |
+|---|---|
+| **Left Virtual Joystick** | Steer and drive tank (drag forward/reverse and turn) |
+| **Right Virtual Aim Zone** | Touch/drag to aim turret and auto-fire |
+| **[ \|\| ] Button (Top Right)** | Pause / Open menu |
+| **[ TAB ] Button (Top Right)** | Toggle scoreboard |
+| **[ - ] / [ + ] Buttons (Top Left)**| Zoom camera in / out |
+| **Tappable UI** | Menus, sliders, and buttons are fully touch-interactive |
 
 ## Testing
 

@@ -97,8 +97,8 @@ end
 function Save.addXp(n)
   Save.data.xp = Save.data.xp + n
   -- 100 XP per level, growing slightly
-  while Save.data.xp >= Save.level * 100 do
-    Save.data.xp = Save.data.xp - Save.level * 100
+  while Save.data.xp >= Save.data.level * 100 do
+    Save.data.xp = Save.data.xp - Save.data.level * 100
     Save.data.level = Save.data.level + 1
   end
   Save.dirty = true

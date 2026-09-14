@@ -211,7 +211,15 @@ function Main.mousepressed(x, y, b) Kit.mousepressed(x, y, b) end
 function Main.mousereleased(x, y, b) Kit.mousereleased(x, y, b) end
 function Main.mousemoved(x, y) Kit.mousemoved(x, y) end
 function Main.keypressed(key, sc)
-  if key == "escape" then love.event.quit() end
+  if key == "escape" then
+    love.event.quit()
+  elseif key == "backspace" then
+    if Kit.textCapture == "name" and #S.nameBuf > 0 then
+      S.nameBuf = S.nameBuf:sub(1, -2)
+    elseif Kit.textCapture == "host" and #S.hostBuf > 0 then
+      S.hostBuf = S.hostBuf:sub(1, -2)
+    end
+  end
 end
 function Main.textinput(text)
   if Kit.textCapture == "name" then

@@ -60,7 +60,10 @@ function States.push(name, ...)
 end
 
 function States.pop(...)
-  if #States.stack <= 1 then return end
+  if #States.stack <= 1 then
+    States.switch("menu.main")
+    return
+  end
   local top = table.remove(States.stack)
   call(top.module, "leave")
   call(States.current().module, "resume", ...)
@@ -125,6 +128,21 @@ end
 function States.textinput(text)
   local top = States.current()
   if top then call(top.module, "textinput", text) end
+end
+
+function States.touchpressed(id, x, y, dx, dy, pressure)
+  local top = States.current()
+  if top then call(top.module, "touchpressed", id, x, y, dx, dy, pressure) end
+end
+
+function States.touchreleased(id, x, y, dx, dy, pressure)
+  local top = States.current()
+  if top then call(top.module, "touchreleased", id, x, y, dx, dy, pressure) end
+end
+
+function States.touchmoved(id, x, y, dx, dy, pressure)
+  local top = States.current()
+  if top then call(top.module, "touchmoved", id, x, y, dx, dy, pressure) end
 end
 
 function States.resize(w, h)

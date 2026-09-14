@@ -18,6 +18,7 @@ local Maps      = require("data.maps")
 local Modes     = require("data.modes")
 local States    = require("core.state")
 local Audio     = require("core.audio")
+local Viewport  = require("core.viewport")
 
 local love_errorhandler = love.errorhandler
 
@@ -40,7 +41,16 @@ function love.load(args)
     save     = Save,
     settings = Settings,
     audio    = Audio,
+    viewport = Viewport,
   })
+
+  if love and love.mouse and love.mouse.getPosition then
+    local _rawGetPos = love.mouse.getPosition
+    love.mouse.getPosition = function()
+      local rx, ry = _rawGetPos()
+      return Viewport.toVirtual(rx, ry)
+    end
+  end
 
   -- Dedicated server / self-test / net-test / smoke-test modes.
   for _, a in ipairs(args or {}) do
@@ -109,10 +119,12 @@ function _updateBody(dt)
 end
 
 function love.draw()
+  Viewport.apply()
   local ok, err = xpcall(States.draw, function(e)
     print("[DRAW ERROR] " .. tostring(e))
     print(debug.traceback(e, 2))
   end)
+  Viewport.pop()
   if not ok then love.event.quit() end
 end
 
@@ -125,15 +137,41 @@ function love.keyreleased(key, scancode)
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
-  States.mousepressed(x, y, button, istouch, presses)
+  local vx, vy = Viewport.toVirtual(x, y)
+  States.mousepressed(vx, vy, button, istouch, presses)
 end
 
 function love.mousereleased(x, y, button, istouch, presses)
-  States.mousereleased(x, y, button, istouch, presses)
+  local vx, vy = Viewport.toVirtual(x, y)
+  States.mousereleased(vx, vy, button, istouch, presses)
 end
 
 function love.mousemoved(x, y, dx, dy, istouch)
-  States.mousemoved(x, y, dx, dy, istouch)
+  local vx, vy = Viewport.toVirtual(x, y)
+  local scale = Viewport.scale > 0 and Viewport.scale or 1
+  States.mousemoved(vx, vy, dx / scale, dy / scale, istouch)
+end
+
+function love.touchpressed(id, x, y, dx, dy, pressure)
+  Viewport.touchActive = true
+  local vx, vy = Viewport.toVirtual(x, y)
+  local scale = Viewport.scale > 0 and Viewport.scale or 1
+  States.touchpressed(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
+  States.mousepressed(vx, vy, 1, true, 1)
+end
+
+function love.touchreleased(id, x, y, dx, dy, pressure)
+  local vx, vy = Viewport.toVirtual(x, y)
+  local scale = Viewport.scale > 0 and Viewport.scale or 1
+  States.touchreleased(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
+  States.mousereleased(vx, vy, 1, true, 1)
+end
+
+function love.touchmoved(id, x, y, dx, dy, pressure)
+  local vx, vy = Viewport.toVirtual(x, y)
+  local scale = Viewport.scale > 0 and Viewport.scale or 1
+  States.touchmoved(id, vx, vy, (dx or 0) / scale, (dy or 0) / scale, pressure)
+  States.mousemoved(vx, vy, (dx or 0) / scale, (dy or 0) / scale, true)
 end
 
 function love.wheelmoved(x, y)
@@ -145,6 +183,7 @@ function love.textinput(text)
 end
 
 function love.resize(w, h)
+  Viewport.update()
   States.resize(w, h)
 end
 

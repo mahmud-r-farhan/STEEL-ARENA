@@ -226,6 +226,12 @@ function Play.keypressed(key)
   if key == "escape" then
     if S.view == "create" then S.view = "browser"
     else States.switch("menu.main") end
+  elseif key == "backspace" then
+    if Kit.textCapture == "rname" and #S.creating.name > 0 then
+      S.creating.name = S.creating.name:sub(1, -2)
+    elseif Kit.textCapture == "cpw" and #S.creating.password > 0 then
+      S.creating.password = S.creating.password:sub(1, -2)
+    end
   end
 end
 

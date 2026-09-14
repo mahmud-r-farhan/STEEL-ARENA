@@ -1,16 +1,32 @@
-name: Steel Arena CI
+name: Steel Arena CI/CD & Auto Release
 
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publish GitHub Release'
+        required: true
+        type: boolean
+        default: false
+      release_version:
+        description: 'Version string (e.g. 1.0.1)'
+        required: false
+        default: '1.0.0'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
-  test-and-build:
-    name: Test and Package Release
+  test:
+    name: Verify & Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,28 +36,119 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y love luajit zip unzip
 
-      - name: Run Lua Syntax Verification
+      - name: Lua Syntax Check
         run: |
-          echo "Checking Lua syntax..."
+          echo "Verifying syntax across all Lua files..."
           find src -name "*.lua" -exec luajit -bl {} > /dev/null \;
-          echo "Syntax check passed!"
+          echo "All Lua files syntax verified!"
 
-      - name: Run Headless Self-Test (--selftest)
+      - name: Headless Selftest (--selftest)
         run: |
           love src --selftest
 
-      - name: Run Headless End-to-End Network Test (--nettest)
+      - name: Headless Network E2E Test (--nettest)
         run: |
           love src --nettest
 
-      - name: Build Release Packages
-        run: |
-          bash tools/build-release.sh
+  build-and-release:
+    name: Build Multiplatform Release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Upload Release Artifacts
+      - name: Setup Node.js (for Web / love.js)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java (for Android signing)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip unzip curl zipalign apksigner
+
+      - name: Determine Version
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          elif [ "${{ inputs.release_version }}" != "" ]; then
+            VER="${{ inputs.release_version }}"
+          else
+            VER="1.0.0"
+          fi
+          echo "VERSION=${VER}" >> "$GITHUB_OUTPUT"
+          echo "Building version ${VER}"
+
+      - name: Package All Distribution Targets
+        run: |
+          bash tools/build-release.sh "${{ steps.get_version.outputs.VERSION }}"
+
+      - name: Upload Build Artifacts (CI Run)
         uses: actions/upload-artifact@v4
         with:
-          name: steel-arena-release
+          name: steel-arena-all-platforms
           path: |
             dist/*.love
             dist/*.zip
+            dist/*.tar.gz
+            dist/*.apk
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', steps.get_version.outputs.VERSION) }}
+          name: Steel Arena v${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            # 🚀 Steel Arena v${{ steps.get_version.outputs.VERSION }}
+
+            Welcome to the official cross-platform release of **Steel Arena** — the fast top-down multiplayer tank shooter!
+
+            ### 🎮 Download & Play Instructions
+
+            - **Windows (Standalone Portable)**:
+              1. Download `steel-arena-v${{ steps.get_version.outputs.VERSION }}-windows-x64.zip`.
+              2. Extract the ZIP folder anywhere on your PC.
+              3. Double-click `steel-arena.exe` (or `start-game.bat`) to launch instantly! **No installation or LÖVE setup required.**
+              4. To host a dedicated server, run `start-server.bat`.
+
+            - **Android (Mobile / Tablet)**:
+              1. Download `steel-arena-v${{ steps.get_version.outputs.VERSION }}-android.apk`.
+              2. Open and install the APK on your device (enable *Install unknown apps* if prompted).
+              3. Launch the game and enjoy full on-screen virtual dual-stick touch controls!
+              4. Alternatively, install [LÖVE for Android](https://play.google.com/store/apps/details?id=org.love2d.android) and open `steel-arena-v${{ steps.get_version.outputs.VERSION }}.love`.
+
+            - **Web (HTML5 / WebAssembly)**:
+              - Download `steel-arena-v${{ steps.get_version.outputs.VERSION }}-web.zip` and host on any static web server (or GitHub Pages) to play directly in the browser!
+
+            - **Linux**:
+              - Download `steel-arena-v${{ steps.get_version.outputs.VERSION }}-linux.tar.gz`, extract, and execute `./start-game.sh` (requires `love` 11.5).
+
+            - **Universal Package**:
+              - `steel-arena-v${{ steps.get_version.outputs.VERSION }}.love`: Runs on macOS, Steam Deck, Raspberry Pi, Linux, or Windows with LÖVE 11.5 installed.
+
+            ---
+
+            ### 🕹️ Controls
+            - **Desktop**: `W/S` or `↑/↓` drive, `A/D` or `←/→` steer hull, `Mouse` aim turret, `Left Click / Space` fire, `TAB` scoreboard, `ESC` menu.
+            - **Mobile / Touch**: Virtual left thumbstick to drive and steer, right touch/stick zone to aim and fire, on-screen `||` (pause) and `TAB` buttons.
+          files: |
+            dist/*windows-x64.zip
+            dist/*android.apk
+            dist/*web.zip
+            dist/*linux.tar.gz
+            dist/*.love

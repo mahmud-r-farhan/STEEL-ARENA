@@ -7,6 +7,7 @@ local Audio = {
   sounds = {},
   musicSource = nil,
   volumes = { master = 0.8, sfx = 1.0, music = 0.6 },
+  _live = {},
   _nextPlay = 0,
 }
 
@@ -20,15 +21,19 @@ local function synth(name, seconds, fn, sampleRate)
   local ok, err = pcall(function()
     sd = love.sound.newSoundData(n, sampleRate, 16, 1)
   end)
-  if not ok then return end
+  if not ok or not sd then return end
   for i = 0, n - 1 do
     local t = i / sampleRate
     local v = fn(t, seconds)
     v = math.max(-1, math.min(1, v))
     sd:setSample(i, v)
   end
-  local src = love.audio.newSource(sd, "static")
-  Audio.sounds[name] = src
+  if love and love.audio and love.audio.newSource then
+    local srcOk, src = pcall(love.audio.newSource, sd, "static")
+    if srcOk and src then
+      Audio.sounds[name] = src
+    end
+  end
 end
 
 function Audio.load(settings)
@@ -149,8 +154,8 @@ function Audio.play(name, pitch)
   if pitch then inst:setPitch(pitch) end
   inst:setVolume(Audio.volumes.sfx or 1.0)
   inst:play()
-  table.insert(Audio._live or {}, inst)
   Audio._live = Audio._live or {}
+  table.insert(Audio._live, inst)
   -- garbage collect finished instances occasionally
   if #Audio._live > 24 then
     for i = #Audio._live, 1, -1 do

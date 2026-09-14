@@ -23,3 +23,10 @@ net_out.txt
 
 # Local dev
 /conf/local.lua
+
+# Build outputs & distribution
+dist/*
+!dist/.gitkeep
+tools/*.keystore
+tools/*.zip
+

@@ -35,8 +35,8 @@ function SettingsState.draw()
   gfx.setColor(0.92, 0.94, 0.97)
   gfx.printf("SETTINGS", 0, 26, w, "center")
 
-  local px, py = w / 2 - 240, 110
-  local pw, ph = 480, 420
+  local px, py = w / 2 - 240, 90
+  local pw, ph = 480, 450
   Kit.panel(px, py, pw, ph)
 
   Kit.text("AUDIO", px + 20, py + 16, 13, { 0.6, 0.64, 0.7 })
@@ -74,25 +74,32 @@ function SettingsState.draw()
   end
 
   local sshake = st.screen_shake
-  local nshake = Kit.toggle("shake", "Screen shake", px + 20, py + 206, 260, 26, sshake)
+  local nshake = Kit.toggle("shake", "Screen shake", px + 20, py + 204, 260, 24, sshake)
   if nshake ~= sshake then
     st.screen_shake = nshake
     S.shared.settings.save()
   end
 
-  Kit.text("PROFILE", px + 20, py + 248, 13, { 0.6, 0.64, 0.7 })
-  Kit.text("CALLSIGN", px + 20, py + 276, 14)
-  S.nameBuf = Kit.textInput("sname", px + 110, py + 272, 220, 28, S.nameBuf, "name")
+  local stouch = st.touch_controls == true
+  local ntouch = Kit.toggle("touch", "Touch dual-stick controls", px + 20, py + 234, 260, 24, stouch)
+  if ntouch ~= stouch then
+    st.touch_controls = ntouch
+    S.shared.settings.save()
+  end
+
+  Kit.text("PROFILE", px + 20, py + 270, 13, { 0.6, 0.64, 0.7 })
+  Kit.text("CALLSIGN", px + 20, py + 296, 14)
+  S.nameBuf = Kit.textInput("sname", px + 110, py + 292, 220, 28, S.nameBuf, "name")
 
   -- stats
   Kit.text("BATTLES " .. save.data.stats.battles ..
     "   WINS " .. save.data.stats.wins ..
     "   KILLS " .. save.data.stats.kills ..
     "   DEATHS " .. save.data.stats.deaths,
-    px + 20, py + 320, 13, { 0.7, 0.74, 0.8 })
+    px + 20, py + 334, 13, { 0.7, 0.74, 0.8 })
 
   Kit.text("Level " .. save.data.level .. "  (" .. save.data.xp .. "/" .. (save.data.level * 100) .. " XP)",
-    px + 20, py + 344, 13, { 1, 0.85, 0.35 })
+    px + 20, py + 356, 13, { 1, 0.85, 0.35 })
 
   if Kit.button("sdone", "DONE", px + pw - 130, py + ph - 48, 110, 34) then
     close()

@@ -189,6 +189,43 @@ local function testSim()
     "solo sim runs without errors")
 end
 
+local function testSaveAndSettings()
+  out("[save & settings]")
+  local Save = require("core.save")
+  local Settings = require("core.settings")
+
+  -- Reset save data to baseline
+  Save.data.credits = 1000
+  Save.data.xp = 0
+  Save.data.level = 1
+  Save.data.upgrades = {}
+  Save.data.owned = { scout = true }
+
+  Save.grantCredits(500)
+  check(Save.data.credits == 1500, "Save.grantCredits adds currency")
+
+  local spent = Save.spendCredits(300)
+  check(spent == true and Save.data.credits == 1200, "Save.spendCredits deducts correctly")
+
+  local overspend = Save.spendCredits(999999)
+  check(overspend == false and Save.data.credits == 1200, "Save.spendCredits prevents overdraw")
+
+  -- Test leveling up logic & bug fix verification
+  -- Level 1 -> 2 costs 100 XP (leaving 150 XP; Level 2 requires 200 XP to reach Level 3)
+  Save.addXp(250)
+  check(Save.data.level == 2 and Save.data.xp == 150, "Save.addXp calculates progression correctly")
+
+  -- Adding another 60 XP brings XP to 210, which satisfies 2 * 100 = 200, leveling up to 3 with 10 remaining
+  Save.addXp(60)
+  check(Save.data.level == 3 and Save.data.xp == 10, "Save.addXp advances to level 3")
+
+  local upg = Save.buyUpgrade("scout", "armor", 100)
+  check(upg == true and Save.upgradeLevel("scout", "armor") == 1, "Save.buyUpgrade records purchase")
+
+  check(type(Settings.data.volume) == "table", "Settings.data.volume exists")
+  check(type(Settings.data.screen_shake) == "boolean", "Settings.data.screen_shake exists")
+end
+
 return {
   run = function()
     out("=== Steel Arena selftest ===")
@@ -196,6 +233,7 @@ return {
       testModules()
       testProtocol()
       testSim()
+      testSaveAndSettings()
     end)
     if not ok then
       failures = failures + 1

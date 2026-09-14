@@ -69,25 +69,50 @@ love steel-arena.love
 
 ---
 
-## 4. Test Play Release Packaging
+## 4. Multiplatform Release Packaging
 
-To build complete release zip archives containing the `.love` bundle, launch scripts for both **Single-Player (PvE)** and **Local / Dedicated Multiplayer**, and full user documentation:
+To build complete release packages for all supported platforms (**Windows x64**, **Android APK**, **Web HTML5/WASM**, **Linux**, and universal **.love**):
 
 Use the automated script:
 ```bash
-bash tools/build-release.sh
+bash tools/build-release.sh 1.0.0
 ```
 
 This creates the distribution folder `dist/` with:
-- `steel-arena-v1.0.0.love`
-- `steel-arena-v1.0.0-dist.zip` (containing the `.love` bundle, `start-solo.sh`, `start-server.sh`, and documentation).
+- `steel-arena-v1.0.0.love` — Universal bundle for macOS, Steam Deck, Linux, or Android
+- `steel-arena-v1.0.0-windows-x64.zip` — Standalone Windows 64-bit portable package (`steel-arena.exe`, DLLs, `start-game.bat`, `start-server.bat`)
+- `steel-arena-v1.0.0-android.apk` — Standalone signed Android APK
+- `steel-arena-v1.0.0-web.zip` — Static HTML5 / WebAssembly web player build
+- `steel-arena-v1.0.0-linux.tar.gz` — Linux distribution archive with launcher scripts
 
 ---
 
-## 5. Build Verification Checklist
+## 5. GitHub Actions Auto-Release CI/CD
 
-Before releasing a build, ensure:
+Steel Arena includes an automated CI/CD release pipeline in `.github/workflows/ci.yml`.
+
+### Automated Release on Git Tag
+Push any version tag to trigger an automatic release build:
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+The workflow will:
+1. Run syntax verification across all Lua sources.
+2. Execute headless verification tests (`--selftest` and `--nettest`).
+3. Build all 5 platform release packages.
+4. Publish a GitHub Release with auto-generated release notes and attached release binaries.
+
+### Manual Trigger
+You can also trigger release builds manually via the GitHub Actions tab (`workflow_dispatch`) with custom version numbers and optional release publishing.
+
+---
+
+## 6. Build Verification Checklist
+
+Before publishing or releasing a build, ensure:
 1. `love src --selftest` returns exit code `0`.
 2. `love src --nettest` returns exit code `0`.
 3. The `.love` package launches without missing module errors.
-4. Dedicated server mode (`love src --server`) accepts local connections on port `37555`.
+4. The Windows standalone `steel-arena.exe` boots directly without external dependencies.
+5. Dedicated server mode (`love src --server`) accepts local connections on port `37555`.
