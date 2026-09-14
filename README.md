@@ -82,7 +82,7 @@ src/
   render/             world renderer (map, tanks, fx, minimap)
   server/             dedicated server app (rooms, invites, quick match)
   states/             menu/battle screens
-docs/                 player manual, architecture, hosting guide
+docs/                 player manual, build guide, deployment guide, architecture, hosting guide, contributing guidelines
 ```
 
 ## Design notes
@@ -90,6 +90,17 @@ docs/                 player manual, architecture, hosting guide
 - **Authoritative server**: clients send 30 Hz input packets; the server simulates physics/combat and broadcasts snapshots. Loadouts are sanitized server-side (anti-cheat).
 - **Compact wire format**: fixed-point positions/angles (u16), per-message encoders — a full 12-tank snapshot is ~100 bytes.
 - **Zero external assets**: all sound effects are procedurally synthesized at boot; all visuals are drawn with primitives. Clone-and-run with no downloads beyond LÖVE itself.
+
+## Documentation
+
+- **[docs/PLAYER_MANUAL.md](docs/PLAYER_MANUAL.md)** — Player manual & controls walkthrough
+- **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** — Building `.love` packages, release binaries, and test play builds
+- **[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)** — Server deployment, Docker containerization, systemd service, & hosting
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Core architecture & developer guide
+- **[docs/HOSTING.md](docs/HOSTING.md)** — Quick hosting & LAN setup guide
+- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** — Developer setup, style guide, and contribution workflow
+- **[SECURITY.md](SECURITY.md)** — Vulnerability reporting, rate limiting, and server anti-cheat security
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — Community guidelines and standards
 
 ## Roadmap
 
